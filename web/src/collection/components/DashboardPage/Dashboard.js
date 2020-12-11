@@ -10,6 +10,8 @@ import { useTheme } from "@material-ui/core";
 import StackedLineChart from "./StackedLineChart";
 import Grid from "@material-ui/core/Grid";
 // import useUniqueId from "../../../common/hooks/useUniqueId";
+import { formatCount } from "../../../common/helpers/format";
+import { MatchCategory } from "../../state/fileList/MatchCategory"
 
 const useStyles = makeStyles((theme) => ({
   dashboardContainer: {
@@ -45,20 +47,20 @@ const useStyles = makeStyles((theme) => ({
 // }
 
 // This data will be retrieved from server.
-const matches = (theme) => [
+const matches = (theme, counts) => [
   {
     name: "Matches",
-    value: 23,
+    value: formatCount(counts["duplicates"]),
     color: theme.palette.primary.main,
   },
   {
     name: "Possibly related",
-    value: 80,
+    value: formatCount(counts["related"]), 
     color: theme.palette.primary.light,
   },
   {
     name: "Unique files",
-    value: 267,
+    value: formatCount(counts["unique"]),
     color: "#131726",
   },
 ];
@@ -113,7 +115,7 @@ const dbMatches = (theme) => ({
 // TODO: Uncomment code when backdrop menu is back again
 
 function Dashboard(props) {
-  const { className } = props;
+  const { counts, className} = props;
   const classes = useStyles();
   // const messages = useMessages();
   const theme = useTheme();
@@ -121,6 +123,7 @@ function Dashboard(props) {
   // const [showMenu, setShowMenu] = useState(false);
   const showMenu = false;
   // const backdropMenuId = useUniqueId("backdrop-menu");
+  console.info(counts)
 
   return (
     <div className={clsx(classes.dashboardContainer, className)}>
@@ -141,7 +144,7 @@ function Dashboard(props) {
             aria-label={intl.formatMessage({ id: "aria.label.dashboard" })}
           >
             <Grid item lg={6} xs={12}>
-              <PieChart title="My Matches" categories={matches(theme)} />
+              <PieChart title="My Matches" categories={matches(theme, counts)}/>
             </Grid>
             <Grid item lg={6} xs={12}>
               <StackedLineChart
@@ -163,6 +166,12 @@ function Dashboard(props) {
 }
 
 Dashboard.propTypes = {
+  counts: PropTypes.shape({
+    [MatchCategory.all]: PropTypes.number.isRequired,
+    [MatchCategory.duplicates]: PropTypes.number.isRequired,
+    [MatchCategory.related]: PropTypes.number.isRequired,
+    [MatchCategory.unique]: PropTypes.number.isRequired,
+  }).isRequired,
   className: PropTypes.string,
 };
 

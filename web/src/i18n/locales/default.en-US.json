@@ -1,8 +1,8 @@
 {
   "locale": "en-US",
   "messages": {
-    "app.title": "JusticeAI",
-    "app.title.short": "JAI",
+    "app.title": "FunAI",
+    "app.title.short": "FAI",
     "app.action.offline": "Offline",
     "app.action.online": "Online",
     "nav.collection": "My Collection",

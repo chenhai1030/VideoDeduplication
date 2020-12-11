@@ -4,6 +4,10 @@ import { makeStyles } from "@material-ui/styles";
 import AppPage from "../../../application/components/AppPage";
 import { useIntl } from "react-intl";
 import Dashboard from "./Dashboard";
+import { useSelector } from "react-redux"
+import {
+  selectFileCounts,
+} from "../../state/selectors";
 
 const useStyles = makeStyles(() => ({
   body: {
@@ -18,6 +22,7 @@ function DashboardPage(props) {
   const { className } = props;
   const classes = useStyles();
   const intl = useIntl();
+  const counts = useSelector(selectFileCounts)
 
   return (
     <AppPage
@@ -25,7 +30,7 @@ function DashboardPage(props) {
       className={className}
     >
       <div className={classes.body} role="main">
-        <Dashboard />
+        <Dashboard counts={counts}/>
       </div>
     </AppPage>
   );
