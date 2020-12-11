@@ -53,11 +53,11 @@ const menuItems = [
     title: "nav.collection",
     location: routes.collection.fingerprints,
   },
-  {
-    icon: <PersonOutlinedIcon fontSize="large" />,
-    title: "nav.collaborators",
-    location: routes.collaborators.home,
-  },
+  // {
+  //   icon: <PersonOutlinedIcon fontSize="large" />,
+  //   title: "nav.collaborators",
+  //   location: routes.collaborators.home,
+  // },
   {
     icon: <AccountTreeOutlinedIcon fontSize="large" />,
     title: "nav.organization",
