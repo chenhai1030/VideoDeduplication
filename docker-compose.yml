@@ -37,7 +37,7 @@ services:
       dockerfile: "docker/Dockerfile.dedup-${BENETECH_RUNTIME:-gpu}"
       args:
         GIT_HASH: "${GIT_HASH}"
-    runtime: "${BENETECH_DOCKER_RUNTIME:-nvidia}"
+    runtime: "${BENETECH_DOCKER_RUNTIME:-runc}"
     command: bash -ic "bash serve_jupyter.sh"
     environment:
       PGADMIN_DEFAULT_EMAIL: "admin@admin.com"
