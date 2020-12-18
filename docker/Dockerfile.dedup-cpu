@@ -11,6 +11,8 @@ RUN conda update -y conda
 
 ADD environment.yaml /tmp/environment.yaml
 
+RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+
 RUN conda env create -f /tmp/environment.yaml
 
 RUN echo "source activate winnow" > ~/.bashrc
