@@ -32,6 +32,7 @@ services:
 
   dedup-app:
     image: "johnhbenetech/videodeduplication:${BENETECH_RUNTIME:-gpu}${BENETECH_MODE}"
+    shm_size: '4gb'
     build:
       context: .
       dockerfile: "docker/Dockerfile.dedup-${BENETECH_RUNTIME:-gpu}"
