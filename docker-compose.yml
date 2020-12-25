@@ -49,10 +49,13 @@ services:
       - "${BENETECH_DATA_LOCATION:?\n\nPlease set \"BENETECH_DATA_LOCATION\" environment variable to the root folder of your video files.}:/project/data"
     ports:
       - "${BENETECH_DEDUP_PORT:-8888}:8888"
+      - "6379:6379"
+      - "8265:8265"
+    network_mode: host
     depends_on:
       - postgres
-    networks:
-      - postgres-compose-network
+    #networks:
+    #  - postgres-compose-network
   server:
     image: "johnhbenetech/videodeduplication:server${BENETECH_MODE}"
     build:
