@@ -27,5 +27,6 @@ dependencies:
     - pyyaml
     - cached-property
     - dataclasses
-prefix: C:\ProgramData\Anaconda3\envs\winnow
+    - ray
+      #prefix: C:\ProgramData\Anaconda3\envs\winnow
 
