@@ -5,6 +5,7 @@ import cv2
 import ray
 from ray.services import get_node_ip_address
 from functools import reduce
+import queue, threading
 
 # from apscheduler.schedulers.background import BackgroundScheduler
 
@@ -12,6 +13,7 @@ import logging
 import sys
 import click
 import time
+import lmdb
 
 from db import Database
 from winnow.feature_extraction import IntermediateCnnExtractor, FrameToVideoRepresentation, SimilarityModel, \
@@ -32,7 +34,7 @@ logging.getLogger().setLevel(logging.ERROR)
 logging.getLogger("winnow").setLevel(logging.INFO)
 logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
-file_handler = logging.FileHandler('extract_features.log')
+file_handler = logging.FileHandler('test.log')
 file_handler.setLevel(logging.INFO)
 logging.getLogger().addHandler(file_handler)
 
@@ -48,7 +50,6 @@ ray.init(address="0.0.0.0:6379")
 #     '--list-of-files', '-lof',
 #     help='path to txt with a list of files for processing - overrides source folder from the config file',
 #     default="")
-
 @click.option(
     '--frame-sampling', '-fs',
     help='Sets the sampling strategy (values from 1 to 10 - eg sample one frame every X seconds) - overrides frame'
@@ -59,6 +60,8 @@ ray.init(address="0.0.0.0:6379")
     help='Whether to save the frames sampled from the videos - overrides save_frames on the config file',
     default=False, is_flag=True)
 def main(config, frame_sampling, save_frames):
+    nodes = set(ray.get([f.remote() for _ in range(1000)]))
+    logging.info(nodes)
     # scheduler = BackgroundScheduler()
     config = resolve_config(
         config_path=config,
@@ -71,37 +74,120 @@ def main(config, frame_sampling, save_frames):
         reader = csv.reader(file)
 
         for row in reader:
-            # print(row)
             video_links.extend(row)
-
-        for link in video_links:
+            link = row[0]
             duration = get_video_duration(link)
             if duration < 240:
                 if not is_video_exist_in_db(config, link.split('/')[-1]):
                     while True:
-                        # resource = ray.available_resources()
-                        print(ray.available_resources())
-                        if 'CPU' in list(ray.available_resources()):
-                            task_id = extract_features.remote(config, link)
-                            result_ids.append(task_id)
+                        try:
+                            logging.info(ray.available_resources())
+                            if 'CPU' in list(ray.available_resources()):
+                                task_id = extract_features.remote(config, link)
+                                result_ids.append(task_id)
+                                break
+                        except Exception as e:
                             break
+                            print(e)
                         time.sleep(0.5)
 
-    # print(len(video_links))
-    # for link in video_links:
-    #     if not is_video_exist_in_db(config, link.split('/')[-1]):
-    #         extract_features.remote(config, link)
-    #     time.sleep(1)
     print("task dis done!")
 
-    while len(result_ids):
+    count = 0
+    while len(result_ids) and count < 100:
         done_id, result_ids = ray.wait(result_ids)
-        time.sleep(10)
+        count += 1
+        time.sleep(5)
 
-    print("All task Done!!")
-    # scheduler.add_job(download_video_series(get_video_links), 'interval', seconds=3000)
-    #
-    # scheduler.add_job(scanVideos.remote(config), 'interval', seconds=10)
+    collect_files(nodes)
+    merge_files(nodes)
+    os.popen('python /project/generate_matches.py')
+    logging.info("All task Done!!")
+
+
+def collect_files(nodes):
+    if not os.path.exists("/project/data/rsync_path"):
+        os.makedirs("/project/data/rsync_path")
+    for node in nodes:
+        command = "rsync -avz --password-file=/etc/rsyncd.passwd chenhai@" + node + \
+                  "::video /project/data/rsync_path/" + node
+        ret = os.popen(command)
+        print(ret.read())
+
+
+def merge_files(nodes):
+    for node in nodes:
+        src_path = "/project/data/rsync_path/" + node
+        if os.path.exists(src_path):
+            vid_level_cmd = "cp -rf " + src_path + "/" + "representations/video_level/*.npy " + \
+                            "/project/data/representations/video_level/"
+            os.system(vid_level_cmd)
+            vid_sig_cmd = "cp -rf " + src_path + "/" + "representations/video_signatures/*.npy " + \
+                          "/project/data/representations/video_signatures/"
+            os.system(vid_sig_cmd)
+            ## video_level
+            src_vid_lev_lmdb = src_path + "/" + "representations/video_level/store.lmdb"
+            dst_vid_lev_lmdb = "/project/data/representations/video_level/store.lmdb"
+            ret_vid_lev_lmdb = "/project/data/representations/video_level/ret.lmdb"
+            merge_lmdb(src_vid_lev_lmdb, dst_vid_lev_lmdb, ret_vid_lev_lmdb)
+            os.system("rm -rf /project/data/representations/video_level/store.lmdb")
+            os.system("mv /project/data/representations/video_level/ret.lmdb "
+                      "/project/data/representations/video_level/store.lmdb")
+            ## video_signatures
+            src_vid_sig_lmdb = src_path + "/" + "representations/video_signatures/store.lmdb"
+            dst_vid_sig_lmdb = "/project/data/representations/video_signatures/store.lmdb"
+            ret_vid_sig_lmdb = "/project/data/representations/video_signatures/ret.lmdb"
+            merge_lmdb(src_vid_sig_lmdb, dst_vid_sig_lmdb, ret_vid_sig_lmdb)
+            os.system("rm -rf /project/data/representations/video_signatures/store.lmdb")
+            os.system("mv /project/data/representations/video_signatures/ret.lmdb "
+                      "/project/data/representations/video_signatures/store.lmdb")
+
+
+def merge_lmdb(lmdb1, lmdb2, result_lmdb):
+    print('Merge start!')
+    env_1 = lmdb.open(lmdb1)
+    env_2 = lmdb.open(lmdb2)
+
+    txn_1 = env_1.begin()
+    txn_2 = env_2.begin()
+
+    database_1 = txn_1.cursor()
+    database_2 = txn_2.cursor()
+
+    env_3 = lmdb.open(result_lmdb, map_size=int(1e12))
+    txn_3 = env_3.begin(write=True)
+
+    count = 0
+    for (key, value) in database_1:
+        txn_3.put(key, value)
+        count += 1
+        if count % 1000 == 0:
+            txn_3.commit()
+            count = 0
+            txn_3 = env_3.begin(write=True)
+
+    if count % 1000 != 0:
+        txn_3.commit()
+        count = 0
+        txn_3 = env_3.begin(write=True)
+
+    for (key, value) in database_2:
+        txn_3.put(key, value)
+        if count % 1000 == 0:
+            txn_3.commit()
+            count = 0
+            txn_3 = env_3.begin(write=True)
+
+    if count % 1000 != 0:
+        txn_3.commit()
+        count = 0
+        txn_3 = env_3.begin(write=True)
+
+    env_1.close()
+    env_2.close()
+    env_3.close()
+
+    print('Merge success!')
 
 
 def check_unhandled_video(config):
@@ -184,6 +270,7 @@ def extract_features(config, link):
 
         remove_file(VIDEOS_LIST)
         remove_file("/project/data/test_dataset/" + file_name)
+        os.system("rm -rf /project/core.*")
         # os.remove(VIDEOS_LIST)
         Convert(config)
 
@@ -198,7 +285,8 @@ def is_video_exist_in_db(config, file):
                 if file is None:
                     return False
             except Exception as e:
-                pass
+                print("db is null")
+                return False
     return True
 
 
@@ -277,6 +365,43 @@ def download_video(link):
 
 
 if __name__ == "__main__":
-    set_notes = set(ray.get([f.remote() for _ in range(1000)]))
-    print(set_notes)
     main()
+
+    # videoList = VideoList("/project/data/video_path.csv")
+    # videoQueueProducerThread = threading.Thread(target=videoList.producer)
+    # videoQueueConsumerThread = threading.Thread(target=videoList.consumer)
+    # videoQueueProducerThread.start()
+    # videoQueueConsumerThread.start()
+    #
+    # videoQueueProducerThread.join()
+    # videoQueueConsumerThread.join()
+# class VideoList:
+#     __q = queue.Queue()
+#
+#     def __init__(self, file_path):
+#         self.file_path = file_path
+#
+#     @classmethod
+#     def get_queue(cls):
+#         return cls.__q
+#
+#     def producer(self):
+#         with open(self.file_path, 'r') as file:
+#             reader = csv.reader(file)
+#             for row in reader:
+#                 # print(row)
+#                 self.__q.put(row)
+#
+#     def consumer(self, config):
+#
+#         link = self.get_queue().get()
+#         duration = get_video_duration(link)
+#         if duration < 240:
+#             if not is_video_exist_in_db(config, link.split('/')[-1]):
+#                 while True:
+#                     # resource = ray.available_resources()
+#                     print(ray.available_resources())
+#                     if 'CPU' in list(ray.available_resources()):
+#                         extract_features.remote(config, link)
+#                         break
+#                     time.sleep(0.5)
