@@ -34,9 +34,10 @@ logging.getLogger().setLevel(logging.ERROR)
 logging.getLogger("winnow").setLevel(logging.INFO)
 logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 file_handler = logging.FileHandler('test.log')
-file_handler.setLevel(logging.INFO)
-logging.getLogger().addHandler(file_handler)
+logger.addHandler(file_handler)
 
 ray.init(address="0.0.0.0:6379")
 
@@ -46,10 +47,6 @@ ray.init(address="0.0.0.0:6379")
     '--config', '-cp',
     help='path to the project config file',
     default=os.environ.get('WINNOW_CONFIG'))
-# @click.option(
-#     '--list-of-files', '-lof',
-#     help='path to txt with a list of files for processing - overrides source folder from the config file',
-#     default="")
 @click.option(
     '--frame-sampling', '-fs',
     help='Sets the sampling strategy (values from 1 to 10 - eg sample one frame every X seconds) - overrides frame'
@@ -62,7 +59,6 @@ ray.init(address="0.0.0.0:6379")
 def main(config, frame_sampling, save_frames):
     nodes = set(ray.get([f.remote() for _ in range(1000)]))
     logging.info(nodes)
-    # scheduler = BackgroundScheduler()
     config = resolve_config(
         config_path=config,
         frame_sampling=frame_sampling,
@@ -81,17 +77,16 @@ def main(config, frame_sampling, save_frames):
                 if not is_video_exist_in_db(config, link.split('/')[-1]):
                     while True:
                         try:
-                            logging.info(ray.available_resources())
+                            # logging.info(ray.available_resources())
                             if 'CPU' in list(ray.available_resources()):
                                 task_id = extract_features.remote(config, link)
                                 result_ids.append(task_id)
                                 break
                         except Exception as e:
                             break
-                            print(e)
                         time.sleep(0.5)
 
-    print("task dis done!")
+    logging.info("task dis done!")
 
     count = 0
     while len(result_ids) and count < 100:
@@ -112,7 +107,7 @@ def collect_files(nodes):
         command = "rsync -avz --password-file=/etc/rsyncd.passwd chenhai@" + node + \
                   "::video /project/data/rsync_path/" + node
         ret = os.popen(command)
-        print(ret.read())
+        logging.info(ret.read())
 
 
 def merge_files(nodes):
@@ -144,7 +139,7 @@ def merge_files(nodes):
 
 
 def merge_lmdb(lmdb1, lmdb2, result_lmdb):
-    print('Merge start!')
+    logging.info('Merge start!')
     env_1 = lmdb.open(lmdb1)
     env_2 = lmdb.open(lmdb2)
 
@@ -187,37 +182,37 @@ def merge_lmdb(lmdb1, lmdb2, result_lmdb):
     env_2.close()
     env_3.close()
 
-    print('Merge success!')
+    logging.info('Merge success!')
 
 
-def check_unhandled_video(config):
-    reps = ReprStorage(os.path.join(config.repr.directory))
-    reprkey = reprkey_resolver(config)
-
-    videos = scan_videos(config.sources.root, '**', extensions=config.sources.extensions)
-    remaining_videos_path = [path for path in videos if not reps.frame_level.exists(reprkey(path))]
-    logging.info('There are {} videos unhandled'.format(len(remaining_videos_path)))
-
-    VIDEOS_UNHANDLED_LIST = create_video_list(remaining_videos_path, config.proc.video_list_filename)
-    if len(remaining_videos_path) > 0:
-        model_path = default_model_path(config.proc.pretrained_model_local_path)
-        extractor = IntermediateCnnExtractor(video_src=VIDEOS_UNHANDLED_LIST, reprs=reps, reprkey=reprkey,
-                                             frame_sampling=config.proc.frame_sampling,
-                                             save_frames=config.proc.save_frames,
-                                             model=(load_featurizer(model_path)))
-        # Starts Extracting Frame Level Features
-        extractor.start(batch_size=16, cores=4)
-
-    Convert(config)
+# def check_unhandled_video(config):
+#     reps = ReprStorage(os.path.join(config.repr.directory))
+#     reprkey = reprkey_resolver(config)
+#
+#     videos = scan_videos(config.sources.root, '**', extensions=config.sources.extensions)
+#     remaining_videos_path = [path for path in videos if not reps.frame_level.exists(reprkey(path))]
+#     logging.info('There are {} videos unhandled'.format(len(remaining_videos_path)))
+#
+#     VIDEOS_UNHANDLED_LIST = create_video_list(remaining_videos_path, config.proc.video_list_filename)
+#     if len(remaining_videos_path) > 0:
+#         model_path = default_model_path(config.proc.pretrained_model_local_path)
+#         extractor = IntermediateCnnExtractor(video_src=VIDEOS_UNHANDLED_LIST, reprs=reps, reprkey=reprkey,
+#                                              frame_sampling=config.proc.frame_sampling,
+#                                              save_frames=config.proc.save_frames,
+#                                              model=(load_featurizer(model_path)))
+#         # Starts Extracting Frame Level Features
+#         extractor.start(batch_size=16, cores=4)
+#
+#     Convert(config)
 
 
 def Convert(config):
     reps = ReprStorage(os.path.join(config.repr.directory))
-    print('Converting Frame by Frame representations to Video Representations')
+    logging.info('Converting Frame by Frame representations to Video Representations')
     converter = FrameToVideoRepresentation(reps)
     converter.start()
 
-    print('Extracting Signatures from Video representations')
+    logging.info('Extracting Signatures from Video representations')
     sm = SimilarityModel()
     vid_level_iterator = bulk_read(reps.video_level)
 
@@ -250,7 +245,6 @@ def extract_features(config, link):
     reps = ReprStorage(os.path.join(config.repr.directory))
     reprkey = reprkey_resolver(config)
 
-    # link = ray.get(link_id)
     file_name = link.split('/')[-1]
     if not reps.frame_level.exists(reprkey(os.path.join(config.sources.root, file_name))):
         VIDEOS_LIST = create_video_list([os.path.join(config.sources.root, file_name)],
@@ -258,8 +252,6 @@ def extract_features(config, link):
         # logging.info('Processed video List saved on :{}'.format(VIDEOS_LIST))
         # Instantiates the extractor
         model_path = default_model_path(config.proc.pretrained_model_local_path)
-        # model_pid_path = "/project/winnow/feature_extraction/pretrained_models/" + str(os.getpid()) + "_" + model_path.split('/')[-1]
-        # os.system('cp ' + model_path + " " + model_pid_path)
 
         extractor = IntermediateCnnExtractor(video_src=VIDEOS_LIST, reprs=reps, reprkey=reprkey,
                                              frame_sampling=config.proc.frame_sampling,
@@ -271,7 +263,6 @@ def extract_features(config, link):
         remove_file(VIDEOS_LIST)
         remove_file("/project/data/test_dataset/" + file_name)
         os.system("rm -rf /project/core.*")
-        # os.remove(VIDEOS_LIST)
         Convert(config)
 
 
@@ -294,27 +285,6 @@ def is_video_exist_in_db(config, file):
 def f():
     time.sleep(0.01)
     return ray.services.get_node_ip_address()
-
-
-def get_video_links():
-    video_links = []
-    with open('/project/data/video_path.csv', 'r') as file:
-        reader = csv.reader(file)
-
-        for row in reader:
-            # print(row)
-            video_links.extend(row)
-
-    # 删除大于240s的长视频
-    for link in video_links:
-        print(link)
-        # file_name = link.split('/')[-1]
-
-        duration = get_video_duration(link)
-        if duration > 240:
-            video_links.remove(link)
-
-    return video_links
 
 
 def get_video_duration(filename):
@@ -344,10 +314,8 @@ def remove_file(file_path):
         os.remove(file_path)
 
 
-# @ray.remote
 def download_video(link):
     file_name = link.split('/')[-1]
-    # print("Downloading file:%s" % file_name)
     r = requests.get(link, stream=True)
 
     file_path = "/project/data/test_dataset/"
@@ -359,49 +327,10 @@ def download_video(link):
             if chunk:
                 file.write(chunk)
         if os.path.exists(file_path + file_name):
-            print("%s downloaded!\n" % file_name)
+            logging.info("%s downloaded!\n" % file_name)
             return link
     return None
 
 
 if __name__ == "__main__":
     main()
-
-    # videoList = VideoList("/project/data/video_path.csv")
-    # videoQueueProducerThread = threading.Thread(target=videoList.producer)
-    # videoQueueConsumerThread = threading.Thread(target=videoList.consumer)
-    # videoQueueProducerThread.start()
-    # videoQueueConsumerThread.start()
-    #
-    # videoQueueProducerThread.join()
-    # videoQueueConsumerThread.join()
-# class VideoList:
-#     __q = queue.Queue()
-#
-#     def __init__(self, file_path):
-#         self.file_path = file_path
-#
-#     @classmethod
-#     def get_queue(cls):
-#         return cls.__q
-#
-#     def producer(self):
-#         with open(self.file_path, 'r') as file:
-#             reader = csv.reader(file)
-#             for row in reader:
-#                 # print(row)
-#                 self.__q.put(row)
-#
-#     def consumer(self, config):
-#
-#         link = self.get_queue().get()
-#         duration = get_video_duration(link)
-#         if duration < 240:
-#             if not is_video_exist_in_db(config, link.split('/')[-1]):
-#                 while True:
-#                     # resource = ray.available_resources()
-#                     print(ray.available_resources())
-#                     if 'CPU' in list(ray.available_resources()):
-#                         extract_features.remote(config, link)
-#                         break
-#                     time.sleep(0.5)
