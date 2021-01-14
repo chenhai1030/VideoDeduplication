@@ -116,7 +116,8 @@ class LMDBReprStorage:
             for repr_file_path in glob(path_pattern, recursive=True):
                 original_path = self._reverse(repr_file_path)
                 metadata = self._read_metadata(original_path, txn)
-                yield ReprKey(path=original_path, hash=metadata.hash, tag=metadata.tag)
+                if metadata is not None:
+                    yield ReprKey(path=original_path, hash=metadata.hash, tag=metadata.tag)
 
     # Private methods
 

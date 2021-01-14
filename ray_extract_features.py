@@ -48,6 +48,10 @@ ray.init(address="0.0.0.0:6379")
     help='path to the project config file',
     default=os.environ.get('WINNOW_CONFIG'))
 @click.option(
+    '--list-of-files', '-lof',
+    help='path to txt with a list of files for processing - overrides source folder from the config file',
+    default='/project/data/video_path.csv')
+@click.option(
     '--frame-sampling', '-fs',
     help='Sets the sampling strategy (values from 1 to 10 - eg sample one frame every X seconds) - overrides frame'
          'sampling from the config file',
@@ -56,7 +60,7 @@ ray.init(address="0.0.0.0:6379")
     '--save-frames', '-sf',
     help='Whether to save the frames sampled from the videos - overrides save_frames on the config file',
     default=False, is_flag=True)
-def main(config, frame_sampling, save_frames):
+def main(config, list_of_files, frame_sampling, save_frames):
     nodes = set(ray.get([f.remote() for _ in range(1000)]))
     logging.info(nodes)
     config = resolve_config(
@@ -64,14 +68,13 @@ def main(config, frame_sampling, save_frames):
         frame_sampling=frame_sampling,
         save_frames=save_frames)
 
-    video_links = []
     result_ids = []
-    with open('/project/data/video_path.csv', 'r') as file:
+    with open(list_of_files, 'r') as file:
         reader = csv.reader(file)
 
         for row in reader:
-            video_links.extend(row)
             link = row[0]
+            # print(link)
             duration = get_video_duration(link)
             if duration < 240:
                 if not is_video_exist_in_db(config, link.split('/')[-1]):
