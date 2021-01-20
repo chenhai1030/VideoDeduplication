@@ -14,7 +14,7 @@ from ..model import database, Transform
 
 # Optional file fields to be loaded
 FILE_FIELDS = Fields(Files.exif, Files.meta, Files.signature, Files.scenes)
-
+RAY_HEAD_IP = ""
 
 def parse_params():
     """Parse and validate request arguments."""
@@ -38,6 +38,56 @@ def parse_params():
     result.duplicate_distance = config.duplicate_distance
     result.sort = parse_enum(request.args, "sort", values=FileSort.values, default=None)
     return result
+
+
+def set_ray_head_ip(ipaddr):
+    global RAY_HEAD_IP
+    RAY_HEAD_IP = ipaddr
+
+
+def get_ray_head_ip():
+    global RAY_HEAD_IP
+    return RAY_HEAD_IP
+
+
+@api.route('/head/<string:ipaddr>')
+def launch_head(ipaddr):
+    set_ray_head_ip(ipaddr)
+    ssh_command = "ssh chenhai@" + ipaddr + " "
+    remote_command = "docker exec -i videodeduplication_dedup-app_1 /anaconda/envs/winnow/bin/ray start " \
+                    " --head --port=6379 --dashboard-host 0.0.0.0 --num-cpus=2"
+    all_command = ssh_command + "'" + remote_command + "'"
+    ret = os.popen(all_command)
+    return ret.read()
+
+
+@api.route('/worker/<string:ipaddr>')
+def launch_worker(ipaddr):
+    ssh_command = "ssh chenhai@" + ipaddr + " "
+    get_cpu_num_cmd = "cat /proc/cpuinfo |grep \"cpu cores\" | wc -l"
+    remote_cpu_num = os.popen (ssh_command + "'"+get_cpu_num_cmd+"'").read()
+
+    cpu_num_command = "--num-cpus=" + str(int(remote_cpu_num) - 2)
+
+    head_ip_addr = get_ray_head_ip()
+    if len(head_ip_addr) != 0:
+        remote_command = "docker exec -i videodeduplication_dedup-app_1 /anaconda/envs/winnow/bin/ray start " \
+                        " --address='" + head_ip_addr + ":6379'" + " --redis-password='5241590000000000' " + cpu_num_command
+                        # " --address='172.17.7.156:6379' --redis-password='5241590000000000' " + cpu_num_command
+    all_command = ssh_command + "'"+remote_command+"'"
+    # print(all_command)
+    ret = os.popen(all_command)
+    return ret.read()
+
+
+@api.route('/ray_stop/<string:ipaddr>')
+def stop_worker(ipaddr):
+    command = "ssh chenhai@" + ipaddr + " "
+    remote_command = "docker exec -i videodeduplication_dedup-app_1 /anaconda/envs/winnow/bin/ray stop "
+    all_command = command + "'"+remote_command+"'"
+    # print(all_command)
+    ret = os.popen(all_command)
+    return ret.read()
 
 
 @api.route('/files/', methods=['GET'])
