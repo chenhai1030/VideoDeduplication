@@ -123,7 +123,7 @@ function Dashboard(props) {
   // const [showMenu, setShowMenu] = useState(false);
   const showMenu = false;
   // const backdropMenuId = useUniqueId("backdrop-menu");
-  console.info(counts)
+  // console.info(counts)
 
   return (
     <div className={clsx(classes.dashboardContainer, className)}>

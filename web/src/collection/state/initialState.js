@@ -3,6 +3,8 @@ import fileClusterInitialState from "./fileCluster/initialState";
 import fileMatchesInitialState from "./fileMatches/initialState";
 import fileListInitialState from "./fileList/initialState";
 
+import rayStatusInitialState from "./rayNode/initialState";
+
 /**
  * Initial State for file collection management.
  */
@@ -24,6 +26,8 @@ const initialState = {
    * pages).
    */
   fileMatches: fileMatchesInitialState,
+
+  rayStatus: rayStatusInitialState,
 };
 
 export default initialState;

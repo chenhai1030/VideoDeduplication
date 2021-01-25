@@ -14,6 +14,8 @@ import { routes } from "../../../routing/routes";
 import AppPage from "../AppPage";
 import { useIntl } from "react-intl";
 import DashboardPage from "../../../collection/components/DashboardPage";
+import OrganizationPage from "../../../collection/components/OrganizationPage/OrganizationPage";
+
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -68,10 +70,7 @@ function ApplicationLayout(props) {
               />
             </Route>
             <Route path={routes.organization.home}>
-              <AppPage
-                title={intl.formatMessage({ id: "nav.organization" })}
-                className={classes.body}
-              />
+              <OrganizationPage className={classes.body} />
             </Route>
             <Route path={routes.collaborators.home}>
               <AppPage

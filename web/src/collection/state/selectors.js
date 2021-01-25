@@ -15,6 +15,13 @@ export const selectFileLoading = (state) => selectFileList(state).loading;
 
 export const selectFileError = (state) => selectFileList(state).error;
 
+/* ray node */
+export const selectRayStatus = (state) => selectColl(state).rayStatus;
+
+export const selectRayIpaddr = (state) => selectRayStatus(state).ipaddr;
+
+export const selectRayNodeState = (state) => selectRayStatus(state).isOn;
+
 /**
  * Select cached file by id.
  */
