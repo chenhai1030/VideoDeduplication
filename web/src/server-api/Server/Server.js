@@ -100,6 +100,33 @@ export default class Server {
     }
   }
 
+  async rayHeadNodeLaunch(ipaddr){
+    try {
+      const response = await this.axios.get(`/head/${ipaddr}`);
+      return Response.ok(response);
+    } catch (error) {
+      return this.errorResponse(error);
+    } 
+  }
+
+  async rayWorkerNodeLaunch(ipaddr){
+    try {
+      const response = await this.axios.get(`/worker/${ipaddr}`);
+      return Response.ok(response);
+    } catch (error) {
+      return this.errorResponse(error);
+    }  
+  }
+
+  async rayNodeStop(ipaddr){
+    try {
+      const response = await this.axios.get(`/ray_stop/${ipaddr}`);
+      return Response.ok(response);
+    } catch (error) {
+      return this.errorResponse(error);
+    }   
+  }
+
   errorResponse(error) {
     if (error.response == null) {
       return Response.clientError(error);

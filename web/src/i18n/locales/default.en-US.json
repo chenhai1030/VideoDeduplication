@@ -43,11 +43,13 @@
     "actions.hideFiltersPane": "Hide Filters",
     "actions.saveFilters": "Save Filters",
     "actions.addMedia": "Add Media",
+    "actions.addNode": "Add Node",
     "actions.useListView": "List View",
     "actions.useGridView": "Grid View",
     "actions.useGraphView": "Graph View",
     "actions.searchFingerprints": "Search Fingerprints",
     "actions.searchMatches": "Search Matches",
+    "actions.nodeFingerprints": "Node IP",
     "actions.compare": "Compare",
     "actions.retry": "Retry",
     "actions.moreInfo": "More info",
@@ -181,6 +183,7 @@
     "match.noMatches": "No matches found.",
     "video.error.missing": "File Missing",
     "video.error.load": "Loading Error",
-    "video.error.playback": "Playback Error"
+    "video.error.playback": "Playback Error",
+    "ray.head.ipaddr" : "172.17.5.90"
   }
 }
