@@ -1,6 +1,7 @@
 import { call, put, select, takeLatest } from "redux-saga/effects";
 import {
   ACTION_RAY_HEAD_LAUNCH,
+  ACTION_RAY_HEAD_STOP,
   ACTION_RAY_WORKER_LAUNCH,
   ACTION_RAY_NODE_STOP,
 } from "./actions"
@@ -10,7 +11,7 @@ function* fetchRayNodeSaga(server, selectRayNodeState, action){
     case ACTION_RAY_HEAD_LAUNCH:
       try{
         const ret = yield call([server, server.rayHeadNodeLaunch], action.ipaddr)
-        console.log(ret)
+        // console.log(ret)
       }catch (e){
         console.log(e)
       }   
@@ -18,15 +19,16 @@ function* fetchRayNodeSaga(server, selectRayNodeState, action){
     case ACTION_RAY_WORKER_LAUNCH:
         try{
           const ret = yield call([server, server.rayWorkerNodeLaunch], action.ipaddr)
-          console.log(ret)
+          // console.log(ret)
         }catch (e){
           console.log(e)
         }   
         return "";
     case ACTION_RAY_NODE_STOP:
+    case ACTION_RAY_HEAD_STOP:
       try{
         const ret = yield call([server, server.rayNodeStop], action.ipaddr)
-        console.log(ret)
+        // console.log(ret)
       }catch (e){
         console.log(e)
       }
@@ -39,7 +41,6 @@ function* fetchRayNodeSaga(server, selectRayNodeState, action){
       }
       return "";
    }
-
 }
 
 /**

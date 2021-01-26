@@ -10,8 +10,8 @@ const useStyles = makeStyles(() => ({
 }));
 
 function HeadNode(props){
-  const { ipaddr, onChange, className } = props
-  const classes = useStyles()
+  const { ipaddr, state, onChange, className } = props;
+  const classes = useStyles();
 
   return (
     <div>
@@ -22,6 +22,7 @@ function HeadNode(props){
           {ipaddr}
         </span>
         <SwitchButton 
+          isStopped={state.stopped}
           onChange={onChange}
         />
       </form>

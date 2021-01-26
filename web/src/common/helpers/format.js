@@ -45,6 +45,7 @@ export function formatBool(value, intl) {
 }
 
 export function formatCount(count) {
+  return count;
   if (count < 1e3) {
     return count;
   }

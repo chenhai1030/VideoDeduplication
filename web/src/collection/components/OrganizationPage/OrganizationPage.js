@@ -10,6 +10,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { selectRayStatus } from "../../state/selectors";
 import {
   launchHead,
+  stopHead,
   launchWorkerNode,
   stopNode,
   updateNodeStatus,
@@ -49,9 +50,12 @@ function OrganizationPage(props) {
     dispatch(updateNodeStatus(nodeIP, "off"));
   }, []);
 
-  const handleHeadChange = useCallback((state) => {
-    // console.info(state)
-    state? dispatch(launchHead(headIPaddr)):dispatch(stopNode(headIPaddr))
+  const handleHeadChange = useCallback((ipaddr, status) => {
+    if (status == "on"){
+      dispatch(launchHead(headIPaddr));
+    }else{
+      dispatch(stopHead(headIPaddr));
+    }
   }, [])
 
   const handleWorkerChange = useCallback((ipaddr, status) => {
@@ -74,6 +78,7 @@ function OrganizationPage(props) {
     >
       <div className={classes.container} role="main">
         <HeadNode
+          state={rayNodeStatus}
           onChange={handleHeadChange}
           className={classes.headnode}
           ipaddr={headIPaddr}

@@ -62,20 +62,24 @@ const IOSSwitch = withStyles((theme) => ({
 });
 
 function SwitchButton(props) {
-  const { className, ipaddr, status, onChange} = props;
-  const [state, setState] = React.useState({checked: false});
-  // console.info(ipaddr);
-  // console.info(status);
+  const { className, ipaddr, status, isStopped, onChange} = props;
+  // const [state, setState] = React.useState({checked: isStopped?false:true});
+  let isOFF;
+  /* workers state */
+  if (isStopped==undefined){
+    isOFF = status=="off"?true:false;
+  }else{
+    isOFF = isStopped;
+  }
   const handleChange = (event) => {
-    setState({ ...state, [event.target.name]: event.target.checked });
+    // setState({ ...state, [event.target.name]: event.target.checked });
     event.target.checked?onChange(ipaddr, "on"):onChange(ipaddr, "off");
   };
 
   return (
     <FormGroup>
       <FormControlLabel
-        // control={<Switch checked={checked} onChange={toggleChecked} />}
-        control = {<IOSSwitch checked={state.checkedA} onChange={handleChange} name="checked"/>}
+        control = {<IOSSwitch checked={!isOFF} onChange={handleChange} name="checked"/>}
       />
     </FormGroup>
   );

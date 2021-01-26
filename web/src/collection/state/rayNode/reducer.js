@@ -1,8 +1,8 @@
 import initialState from "./initialState"; 
-
 import {
   ACTION_RAY_HEAD_LAUNCH,
   ACTION_RAY_WORKER_LAUNCH,
+  ACTION_RAY_HEAD_STOP,
   ACTION_RAY_NODE_STOP,
   ACTION_RAY_NODE_STATUS_UPDATE,
 } from "./actions";
@@ -10,6 +10,12 @@ import {
 export default function rayNodeStatusReducer(state = initialState, action) {
   switch (action.type) {
     case ACTION_RAY_HEAD_LAUNCH:
+      state.stopped=false;
+      return {...state,
+        ipaddr: action.ipaddr,
+      };
+    case ACTION_RAY_HEAD_STOP:
+      state.stopped=true;
       return {...state,
         ipaddr: action.ipaddr,
       };
