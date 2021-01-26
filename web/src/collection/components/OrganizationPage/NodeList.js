@@ -4,9 +4,9 @@ import { makeStyles } from "@material-ui/styles";
 import SwitchButton from "./SwitchButton";
 
 function NodeList(props) {
-  const { className, onChange, nodes } = props;
-  const showList = (props.nodes.workers[0].nodeIP!=="")? true:false;
-  const workers = Array.from(props.nodes.workers);
+  const { className, onChange, state } = props;
+  const showList = (props.state.workers[0].nodeIP!=="")? true:false;
+  const workers = Array.from(props.state.workers);
 
   // console.info(workers) 
   return (
@@ -16,6 +16,7 @@ function NodeList(props) {
         <div key={item.nodeIP}>
           <li>{item.nodeIP}</li>
           <SwitchButton 
+            state={state}
             ipaddr={item.nodeIP}
             status={item.status}
             onChange={onChange}

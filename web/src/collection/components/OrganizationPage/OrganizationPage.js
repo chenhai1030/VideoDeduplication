@@ -86,13 +86,13 @@ function OrganizationPage(props) {
       </div>
       <div className={classes.container} >
         <WorkerNode
-          // Node={rayNodeStatus}
+          // state={rayNodeStatus}
           className={classes.workernode}
           onAdd={handleAdd}
         />
       </div>
       <NodeList
-        nodes={rayNodeStatus}
+        state={rayNodeStatus}
         onChange={handleWorkerChange}
       /> 
     </AppPage>

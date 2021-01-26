@@ -62,7 +62,7 @@ const IOSSwitch = withStyles((theme) => ({
 });
 
 function SwitchButton(props) {
-  const { className, ipaddr, status, isStopped, onChange} = props;
+  const { className, state, ipaddr, status, isStopped, onChange} = props;
   // const [state, setState] = React.useState({checked: isStopped?false:true});
   let isOFF;
   /* workers state */

@@ -10,6 +10,10 @@ import { IntlProvider } from "react-intl";
 import { Provider as StoreProvider } from "react-redux";
 import { ServerProvider } from "../../../server-api/context";
 import { applyMiddleware, compose as reduxCompose, createStore } from "redux";
+// persist store
+import {persistStore, persistReducer } from 'redux-persist';
+import storage from 'redux-persist/lib/storage';
+import {PersistGate} from 'redux-persist/integration/react';
 import createSagaMiddleware from "redux-saga";
 import {
   appRootReducer,
@@ -24,8 +28,13 @@ function makeStore(initialState, server) {
 
   const preloadedState = initialState || defaultInitialState;
 
+  const myReducer = persistReducer({
+    key: 'root',
+    storage
+}, appRootReducer);
+
   const store = createStore(
-    appRootReducer,
+    myReducer,
     preloadedState,
     compose(applyMiddleware(sagaMiddleware))
   );
@@ -43,6 +52,7 @@ function Application(props) {
   const { server, initialState, locale, theme, className } = props;
 
   const store = useMemo(() => makeStore(initialState, server), undefined);
+  const persistor = persistStore(store);
 
   return (
     <React.Fragment>
@@ -56,7 +66,9 @@ function Application(props) {
           >
             <ServerProvider server={server}>
               <StoreProvider store={store}>
-                <ApplicationLayout className={className} />
+                <PersistGate loading={null} persistor={persistor}>
+                  <ApplicationLayout className={className} />
+                </PersistGate>
               </StoreProvider>
             </ServerProvider>
           </IntlProvider>

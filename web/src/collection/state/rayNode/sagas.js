@@ -48,7 +48,7 @@ function* fetchRayNodeSaga(server, selectRayNodeState, action){
  */
 export default function* rayNodeRootSaga(server, selectRayNodeState) {
   yield takeLatest(
-    [ACTION_RAY_HEAD_LAUNCH, ACTION_RAY_WORKER_LAUNCH, ACTION_RAY_NODE_STOP],
+    [ACTION_RAY_HEAD_LAUNCH, ACTION_RAY_HEAD_STOP, ACTION_RAY_WORKER_LAUNCH, ACTION_RAY_NODE_STOP],
     fetchRayNodeSaga,
     server,
     selectRayNodeState
