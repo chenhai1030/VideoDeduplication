@@ -75,7 +75,6 @@ def launch_worker(ipaddr):
                         " --address='" + head_ip_addr + ":6379'" + " --redis-password='5241590000000000' " + cpu_num_command
                         # " --address='172.17.7.156:6379' --redis-password='5241590000000000' " + cpu_num_command
     all_command = ssh_command + "'"+remote_command+"'"
-    # print(all_command)
     ret = os.popen(all_command)
     return ret.read()
 
@@ -86,6 +85,15 @@ def stop_worker(ipaddr):
     remote_command = "docker exec -i videodeduplication_dedup-app_1 /anaconda/envs/winnow/bin/ray stop "
     all_command = command + "'"+remote_command+"'"
     # print(all_command)
+    ret = os.popen(all_command)
+    return ret.read()
+
+
+@api.route('/clear/<string:ipaddr>')
+def clear_node(ipaddr):
+    command = "ssh chenhai@" + ipaddr + " "
+    remote_command = "docker exec -i videodeduplication_dedup-app_1 rm -rf /project/*_video_dataset_list.txt core.* "
+    all_command = command + "'" + remote_command + "'"
     ret = os.popen(all_command)
     return ret.read()
 
