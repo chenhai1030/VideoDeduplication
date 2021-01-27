@@ -89,7 +89,7 @@ def stop_worker(ipaddr):
     return ret.read()
 
 
-@api.route('/clear/<string:ipaddr>')
+@api.route('/clean/<string:ipaddr>')
 def clear_node(ipaddr):
     command = "ssh chenhai@" + ipaddr + " "
     remote_command = "docker exec -i videodeduplication_dedup-app_1 rm -rf /project/*_video_dataset_list.txt core.* "
