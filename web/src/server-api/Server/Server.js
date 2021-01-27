@@ -127,6 +127,15 @@ export default class Server {
     }   
   }
 
+  async rayNodeClean(ipaddr){
+    try {
+      const response = await this.axios.get(`/clean/${ipaddr}`);
+      return Response.ok(response);
+    } catch (error) {
+      return this.errorResponse(error);
+    }   
+  }
+
   errorResponse(error) {
     if (error.response == null) {
       return Response.clientError(error);

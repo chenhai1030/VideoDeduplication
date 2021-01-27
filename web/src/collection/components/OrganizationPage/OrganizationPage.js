@@ -14,6 +14,8 @@ import {
   launchWorkerNode,
   stopNode,
   updateNodeStatus,
+  removeNode,
+  cleanNode,
 } from "../../state/rayNode/actions";
 
 
@@ -28,12 +30,14 @@ const useStyles = makeStyles((theme) => ({
   body: {
     height: "100%",
   },
-  dashboard: {
-    height: "100%",
-  },
   headnode:{
     marginTop: theme.spacing(1),
     marginBottom: theme.spacing(1)
+  },
+  nodelist:{
+    display: "flex",
+    alignItems: "stretch",
+    minWidth: theme.dimensions.collectionPage.width,
   },
 }))
 
@@ -46,8 +50,17 @@ function OrganizationPage(props) {
   const headIPaddr =intl.formatMessage({ id: "ray.head.ipaddr" }) 
 
   const handleAdd = useCallback((nodeIP) => {
-    // console.info(nodeIP)
     dispatch(updateNodeStatus(nodeIP, "off"));
+  }, []);
+
+  const handleClear = useCallback((state) => {
+    for(let i=0; i< state.workers.length; i++){
+      console.info(state.workers[i].nodeIP);
+      if (state.workers[i].nodeIP!==""){
+        dispatch(cleanNode(state.workers[i].nodeIP))
+      }
+      dispatch(cleanNode(headIPaddr));
+    }
   }, []);
 
   const handleHeadChange = useCallback((ipaddr, status) => {
@@ -59,9 +72,8 @@ function OrganizationPage(props) {
   }, [])
 
   const handleWorkerChange = useCallback((ipaddr, status) => {
-    // console.info(ipaddr)
+    console.info(ipaddr)
     // console.info(status);
-    // state? dispatch(updateNodeStatus)
     if (status=="on"){
       dispatch(updateNodeStatus(ipaddr, "on"));
       dispatch(launchWorkerNode(ipaddr));
@@ -69,6 +81,11 @@ function OrganizationPage(props) {
       dispatch(updateNodeStatus(ipaddr, "off"));
       dispatch(stopNode(ipaddr));
     }
+  }, [])
+
+  const handleWorkerRemove = useCallback((ipaddr) =>{
+    dispatch(stopNode(ipaddr));
+    dispatch(removeNode(ipaddr));
   }, [])
 
   return (
@@ -82,6 +99,7 @@ function OrganizationPage(props) {
           onChange={handleHeadChange}
           className={classes.headnode}
           ipaddr={headIPaddr}
+          onClear={handleClear}
         />
       </div>
       <div className={classes.container} >
@@ -91,10 +109,13 @@ function OrganizationPage(props) {
           onAdd={handleAdd}
         />
       </div>
-      <NodeList
-        state={rayNodeStatus}
-        onChange={handleWorkerChange}
-      /> 
+      <div className={classes.nodelist}>
+        <NodeList
+          state={rayNodeStatus}
+          onChange={handleWorkerChange}
+          onRemove={handleWorkerRemove}
+        /> 
+      </div>
     </AppPage>
   );
 }

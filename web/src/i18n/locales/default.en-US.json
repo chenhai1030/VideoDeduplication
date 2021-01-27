@@ -44,6 +44,8 @@
     "actions.saveFilters": "Save Filters",
     "actions.addMedia": "Add Media",
     "actions.addNode": "Add Node",
+    "actions.CleanNodes": "Clean Nodes",
+    "actions.RemoveNode": "Remove Node",
     "actions.useListView": "List View",
     "actions.useGridView": "Grid View",
     "actions.useGraphView": "Graph View",
