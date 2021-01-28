@@ -26,14 +26,14 @@ function RemoveButton(props) {
   return (
     <React.Fragment>
       <Hidden smDown>
-        <Button className={className} >
+        <Button className={className} onClick={handleClick}>
           <RemoveIcon className={classes.buttonIcon} />
           {intl.formatMessage({ id: "actions.RemoveNode" })}
         </Button>
       </Hidden>
       <Hidden mdUp>
         <Tooltip title={intl.formatMessage({ id: "actions.RemoveNode" })}>
-          <SquaredIconButton className={className} onClick={handleClick}>
+          <SquaredIconButton className={className} >
             <RemoveIcon />
           </SquaredIconButton>
         </Tooltip>

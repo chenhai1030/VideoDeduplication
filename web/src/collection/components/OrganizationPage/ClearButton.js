@@ -26,14 +26,14 @@ function ClearButton(props) {
   return (
     <React.Fragment>
       <Hidden smDown>
-        <Button className={className} >
+        <Button className={className}  onClick={handleClick}>
           <CleanIcon className={classes.buttonIcon} />
           {intl.formatMessage({ id: "actions.CleanNodes" })}
         </Button>
       </Hidden>
       <Hidden mdUp>
         <Tooltip title={intl.formatMessage({ id: "actions.CleanNodes" })}>
-          <SquaredIconButton className={className} onClick={handleClick}>
+          <SquaredIconButton className={className} >
             <CleanIcon />
           </SquaredIconButton>
         </Tooltip>
