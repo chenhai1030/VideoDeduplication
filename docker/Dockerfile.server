@@ -5,6 +5,7 @@ ADD ["web", "/web"]
 WORKDIR /web
 
 ENV PUBLIC_PATH /static/
+RUN npm config set registry https://registry.npm.taobao.org
 RUN npm install
 RUN npm run build
 
@@ -28,11 +29,11 @@ RUN pip install -r requirements.txt
 
 COPY --from=web /web/build /server/static
 
-RUN mkdir ~/.ssh
-COPY --from=server /server/ssh ~/.ssh/
-RUN chmod 700 ~/.ssh 
-RUN chmod 600 ~/.ssh/id_rsa
-RUN chmod 644 ~/.ssh/known_hosts
+RUN mkdir /root/.ssh
+COPY /server/ssh /root/.ssh
+RUN chmod 700 /root/.ssh
+RUN chmod 600 /root/.ssh/id_rsa
+RUN chmod 644 /root/.ssh/known_hosts
 
 ARG GIT_HASH=unspecified
 LABEL git_hash=$GIT_HASH
