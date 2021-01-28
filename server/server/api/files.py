@@ -55,8 +55,7 @@ def launch_head(ipaddr):
     set_ray_head_ip(ipaddr)
     ssh_command = "ssh chenhai@" + ipaddr + " "
     remote_command = "docker exec -i videodeduplication_dedup-app_1 /anaconda/envs/winnow/bin/ray start " \
-                    " --head --port=6379 --dashboard-host 0.0.0.0  --num-redis-shards 4 --num-cpus=2 " \
-                    " --internal-config='{\"initial_reconstruction_timeout_milliseconds\": 100000}'"
+                    " --head --port=6379 --dashboard-host 0.0.0.0 --num-cpus=2"
     all_command = ssh_command + "'" + remote_command + "'"
     ret = os.popen(all_command)
     return ret.read()
@@ -73,7 +72,6 @@ def launch_worker(ipaddr):
     head_ip_addr = get_ray_head_ip()
     if len(head_ip_addr) != 0:
         remote_command = "docker exec -i videodeduplication_dedup-app_1 /anaconda/envs/winnow/bin/ray start " \
-                         " --internal-config='{\"initial_reconstruction_timeout_milliseconds\": 100000}'" \
                         " --address='" + head_ip_addr + ":6379'" + " --redis-password='5241590000000000' " + cpu_num_command
                         # " --address='172.17.7.156:6379' --redis-password='5241590000000000' " + cpu_num_command
     all_command = ssh_command + "'"+remote_command+"'"
