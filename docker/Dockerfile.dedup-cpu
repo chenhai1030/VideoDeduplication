@@ -32,7 +32,11 @@ RUN apt update
 
 RUN apt-get install -y libsm6 libxext6 libxrender-dev nano libgl1-mesa-glx mediainfo rsync
 
+RUN echo "abc.123" > /etc/rsyncd.passwd
+RUN chmod 600 /etc/rsyncd.passwd
+
 RUN /bin/bash -c "source activate winnow &&  bash scripts/run-tests.sh"
+
 
 ARG GIT_HASH=unspecified
 LABEL git_hash=$GIT_HASH
