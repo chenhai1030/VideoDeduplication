@@ -186,6 +186,6 @@
     "video.error.missing": "File Missing",
     "video.error.load": "Loading Error",
     "video.error.playback": "Playback Error",
-    "ray.head.ipaddr" : "172.17.5.90"
+    "ray.head.ipaddr" : "172.17.12.189"
   }
 }
