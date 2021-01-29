@@ -15,8 +15,6 @@ from winnow.utils import scan_videos, extract_from_list_of_videos, convert_to_df
     '--config', '-cp',
     help='path to the project config file',
     default=None)
-
-
 def main(config):
 
     print('Loading config file')

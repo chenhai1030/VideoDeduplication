@@ -8,6 +8,8 @@ import cv2
 import numpy as np
 from joblib import load
 
+from urllib import request
+
 from winnow.config import Config
 from winnow.config.path import resolve_config_path
 from winnow.storage.repr_key import ReprKey
@@ -64,7 +66,6 @@ def scan_videos_from_txt(fp, extensions=[]):
 
 
 def create_video_list(videos_to_be_processed, fp):
-
     with open(fp, 'w', encoding="utf-8") as f:
         for item in videos_to_be_processed:
             f.write("%s\n" % item)
@@ -158,6 +159,7 @@ def extract_additional_info(reps, repr_key):
             grays_std,
             grays_max)
 
+
 def get_hash(fp, buffer_size=65536):
 
     sha256 = hashlib.sha256()
@@ -198,21 +200,23 @@ def get_config_tag(config):
     return sha256.hexdigest()[:40]
 
 
-def reprkey_resolver(config):
+def reprkey_resolver(config, link):
     """Create a function to get intermediate storage key and tags by the file path.
 
     Args:
         config (winnow.config.Config): Pipeline configuration.
+        link: file's url
     """
-
     storepath = path_resolver(config.sources.root)
     config_tag = get_config_tag(config)
+    url = link
 
     def reprkey(path):
         """Get intermediate representation storage key."""
         return ReprKey(
             path=storepath(path),
             hash=get_hash(path),
-            tag=config_tag)
+            tag=config_tag,
+            url=url)
 
     return reprkey

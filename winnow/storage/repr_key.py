@@ -16,3 +16,4 @@ class ReprKey:
     path: str  # video file path relative to dataset root folder
     hash: str  # video file hash
     tag: str = None  # pipeline configuration tag
+    url: str = None  # video file url

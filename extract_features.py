@@ -32,21 +32,20 @@ logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
 @click.option(
     '--frame-sampling', '-fs',
-    help='Sets the sampling strategy (values from 1 to 10 - eg sample one frame every X seconds) - overrides frame sampling from the config file',
+    help='Sets the sampling strategy (values from 1 to 10 - eg sample one frame every X seconds) - overrides frame'
+         'sampling from the config file',
     default="")
 
 @click.option(
     '--save-frames', '-sf',
     help='Whether to save the frames sampled from the videos - overrides save_frames on the config file',
     default=False, is_flag=True)
-
-
 def main(config, list_of_files, frame_sampling, save_frames):
     config = resolve_config(
                         config_path=config,
                         frame_sampling=frame_sampling,
                         save_frames=save_frames)
-       
+
     reps = ReprStorage(os.path.join(config.repr.directory))
     reprkey = reprkey_resolver(config)
 

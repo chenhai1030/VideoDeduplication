@@ -248,7 +248,7 @@ def Convert(config):
 def extract_features(config, link):
     download_video(link)
     reps = ReprStorage(os.path.join(config.repr.directory))
-    reprkey = reprkey_resolver(config)
+    reprkey = reprkey_resolver(config, link)
 
     file_name = link.split('/')[-1]
     if not reps.frame_level.exists(reprkey(os.path.join(config.sources.root, file_name))):
