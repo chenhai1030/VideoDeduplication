@@ -14,6 +14,8 @@ from ..model import database, Transform
 
 # Optional file fields to be loaded
 FILE_FIELDS = Fields(Files.exif, Files.meta, Files.signature, Files.scenes)
+RAY_HEAD_IP=""
+
 
 def parse_params():
     """Parse and validate request arguments."""
