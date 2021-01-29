@@ -10,6 +10,7 @@ include .mk/docker.mk
 
 ## Run application using docker-compose
 run: docker-run
+	sudo rsync --daemon
 
 .PHONY: stop
 
