@@ -14,7 +14,6 @@ from ..model import database, Transform
 
 # Optional file fields to be loaded
 FILE_FIELDS = Fields(Files.exif, Files.meta, Files.signature, Files.scenes)
-RAY_HEAD_IP = ""
 
 def parse_params():
     """Parse and validate request arguments."""
@@ -55,7 +54,7 @@ def launch_head(ipaddr):
     set_ray_head_ip(ipaddr)
     ssh_command = "ssh chenhai@" + ipaddr + " "
     remote_command = "docker exec -i videodeduplication_dedup-app_1 /anaconda/envs/winnow/bin/ray start " \
-                    " --head --port=6379 --dashboard-host 0.0.0.0 --num-redis-shards 4 --num-cpus=2"
+                    " --head --port=6379 --dashboard-host 0.0.0.0 --num-cpus=2"
     all_command = ssh_command + "'" + remote_command + "'"
     ret = os.popen(all_command)
     return ret.read()
