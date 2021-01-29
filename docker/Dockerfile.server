@@ -20,6 +20,11 @@ ADD ["server", "/server"]
 ADD ["db", "/server/db"]
 WORKDIR /server
 
+RUN echo "deb http://mirrors.aliyun.com/debian/ buster main non-free contrib\n \
+deb http://mirrors.aliyun.com/debian/ buster-updates main non-free contrib\n\
+deb http://mirrors.aliyun.com/debian/ buster-backports main non-free contrib\n\
+deb http://mirrors.aliyun.com/debian-security buster/updates main\n" > /etc/apt/sources.list
+
 # Install ffmpeg
 RUN apt-get update && \
     apt-get install ffmpeg -y
