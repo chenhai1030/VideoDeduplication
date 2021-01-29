@@ -39,7 +39,7 @@ logger.setLevel(logging.INFO)
 file_handler = logging.FileHandler('test.log')
 logger.addHandler(file_handler)
 
-ray.init(address="0.0.0.0:6379")
+ray.init(address="0.0.0.0:6379", _internal_config = '{"initial_reconstruction_timeout_milliseconds": 30000000, "num_heartbeats_timeout": 10000}')
 
 
 @click.command()
@@ -62,6 +62,7 @@ ray.init(address="0.0.0.0:6379")
     default=False, is_flag=True)
 def main(config, list_of_files, frame_sampling, save_frames):
     nodes = set(ray.get([f.remote() for _ in range(1000)]))
+    nodes |= set(ray.get([f.remote() for _ in range(1000)]))
     logging.info(nodes)
     config = resolve_config(
         config_path=config,
@@ -81,7 +82,8 @@ def main(config, list_of_files, frame_sampling, save_frames):
                     while True:
                         try:
                             # logging.info(ray.available_resources())
-                            if 'CPU' in list(ray.available_resources()):
+                            resources = list(ray.available_resources())
+                            if 'CPU' in resources:
                                 task_id = extract_features.remote(config, link)
                                 result_ids.append(task_id)
                                 break
