@@ -29,6 +29,7 @@ deb http://mirrors.aliyun.com/debian-security buster/updates main\n" > /etc/apt/
 RUN apt-get update && \
     apt-get install ffmpeg -y
 
+RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
 # Install python dependencies
 RUN pip install -r requirements.txt
 

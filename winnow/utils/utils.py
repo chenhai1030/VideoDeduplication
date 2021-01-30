@@ -200,7 +200,7 @@ def get_config_tag(config):
     return sha256.hexdigest()[:40]
 
 
-def reprkey_resolver(config, link):
+def reprkey_resolver(config):
     """Create a function to get intermediate storage key and tags by the file path.
 
     Args:
@@ -209,14 +209,14 @@ def reprkey_resolver(config, link):
     """
     storepath = path_resolver(config.sources.root)
     config_tag = get_config_tag(config)
-    url = link
 
     def reprkey(path):
+        local_path = os.path.join(config.sources.root, path.split('/')[-1])
         """Get intermediate representation storage key."""
         return ReprKey(
-            path=storepath(path),
-            hash=get_hash(path),
+            path=storepath(local_path),
+            hash=get_hash(local_path),
             tag=config_tag,
-            url=url)
+            url=path)
 
     return reprkey

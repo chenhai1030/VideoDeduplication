@@ -24,6 +24,7 @@ class Metadata:
     """Storage entry metadata."""
     hash: str  # data file hash
     tag: str  # pipeline configuration tag
+    url: str = None  # data file's url
 
     def dump(self):
         """Convert metadata to bytes."""
@@ -37,7 +38,7 @@ class Metadata:
     @staticmethod
     def from_key(key: ReprKey):
         """Read metadata from representation storage key."""
-        return Metadata(hash=key.hash, tag=key.tag)
+        return Metadata(hash=key.hash, tag=key.tag, url=key.url)
 
 
 class LMDBReprStorage:
@@ -117,7 +118,7 @@ class LMDBReprStorage:
                 original_path = self._reverse(repr_file_path)
                 metadata = self._read_metadata(original_path, txn)
                 if metadata is not None:
-                    yield ReprKey(path=original_path, hash=metadata.hash, tag=metadata.tag)
+                    yield ReprKey(path=original_path, hash=metadata.hash, tag=metadata.tag, url=metadata.url)
 
     # Private methods
 

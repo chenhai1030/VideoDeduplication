@@ -79,7 +79,7 @@ class DBResultStorage:
         # Split the work into chunks
         for chunk in chunks(entries, size=1000):
             with self.database.session_scope() as session:
-                index = {(path, sha256): sig for path, sha256, sig in chunk}
+                index = {(path, sha256, url): sig for path, sha256, url, sig in chunk}
                 query = (session.query(Files).options(
                                     joinedload(Files.signature)))
 
@@ -88,18 +88,19 @@ class DBResultStorage:
 
                 # Update existing files
                 for file in files:
-                    sig_value = index.pop((file.file_path, file.sha256))
+                    sig_value = index.pop((file.file_path, file.sha256, file.file_url))
                     sig_entity = file.signature or Signature(file_id=file.id)
                     sig_entity.signature = sig_value
                     file.signature = sig_entity
 
                 # Create missing files
                 new_files = []
-                for (path, sha256), sig_value in index.items():
+                for (path, sha256, url), sig_value in index.items():
                     new_files.append(
                                     Files(
                                         file_path=path,
                                         sha256=sha256,
+                                        file_url=url,
                                         signature=Signature(
                                             signature=sig_value)))
 

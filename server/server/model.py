@@ -56,6 +56,7 @@ class Transform:
             "file_path": file.file_path,
             "sha256": file.sha256,
             "created_date": file.created_date,
+            "file_url": file.file_url,
         }
         if meta:
             data["meta"] = Transform.metadata_dict(file.meta)

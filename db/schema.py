@@ -16,6 +16,7 @@ class Files(Base):
     created_date = Column(DateTime, default=datetime.datetime.utcnow)
     sha256 = Column(String)
     file_path = Column(String)
+    file_url = Column(String)
     signature = relationship("Signature", uselist=False, back_populates="file")
     meta = relationship("VideoMetadata", uselist=False, back_populates="file")
     scenes = relationship("Scene", back_populates="file")

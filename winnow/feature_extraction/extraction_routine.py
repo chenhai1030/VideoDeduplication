@@ -67,7 +67,8 @@ def feature_extraction_videos(model,
     for video in progress_bar:
 
         try:
-            video_file_path = video_list[video]
+            video_file_path = os.path.join("data/test_dataset/", video_list[video].split('/')[-1])
+
             progress_bar.set_postfix(video=os.path.basename(video_file_path))
             if os.path.exists(video_file_path):
 
@@ -99,7 +100,7 @@ def feature_extraction_videos(model,
                 features = model.extract(video_tensor, batch_sz)
 
                 # save features
-                key = reprkey(video_file_path)
+                key = reprkey(video_list[video])
                 reprs.frame_level.write(key, features)
                 if save_frames:
                     reprs.frames.write(key, video_tensor)
