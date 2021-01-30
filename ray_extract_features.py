@@ -39,7 +39,7 @@ logger.setLevel(logging.INFO)
 file_handler = logging.FileHandler('test.log')
 logger.addHandler(file_handler)
 
-ray.init(address="0.0.0.0:6379", _internal_config = '{"initial_reconstruction_timeout_milliseconds": 30000000, "num_heartbeats_timeout": 10000}')
+ray.init(address="0.0.0.0:6379")
 
 
 @click.command()
@@ -190,27 +190,6 @@ def merge_lmdb(lmdb1, lmdb2, result_lmdb):
     logging.info('Merge success!')
 
 
-# def check_unhandled_video(config):
-#     reps = ReprStorage(os.path.join(config.repr.directory))
-#     reprkey = reprkey_resolver(config)
-#
-#     videos = scan_videos(config.sources.root, '**', extensions=config.sources.extensions)
-#     remaining_videos_path = [path for path in videos if not reps.frame_level.exists(reprkey(path))]
-#     logging.info('There are {} videos unhandled'.format(len(remaining_videos_path)))
-#
-#     VIDEOS_UNHANDLED_LIST = create_video_list(remaining_videos_path, config.proc.video_list_filename)
-#     if len(remaining_videos_path) > 0:
-#         model_path = default_model_path(config.proc.pretrained_model_local_path)
-#         extractor = IntermediateCnnExtractor(video_src=VIDEOS_UNHANDLED_LIST, reprs=reps, reprkey=reprkey,
-#                                              frame_sampling=config.proc.frame_sampling,
-#                                              save_frames=config.proc.save_frames,
-#                                              model=(load_featurizer(model_path)))
-#         # Starts Extracting Frame Level Features
-#         extractor.start(batch_size=16, cores=4)
-#
-#     Convert(config)
-
-
 def Convert(config):
     reps = ReprStorage(os.path.join(config.repr.directory))
     logging.info('Converting Frame by Frame representations to Video Representations')
@@ -230,7 +209,7 @@ def Convert(config):
         # Convert dict to list of (path, sha256, signature) tuples
         # entries = [(key.path, key.hash, sig) for key, sig in signatures.items()]
         ## use link instead of path
-        entries = [(key.path, key.hash, sig) for key, sig in signatures.items()]
+        entries = [(key.path, key.hash, key.url, sig) for key, sig in signatures.items()]
 
         # Connect to database
         database = Database(uri=config.database.uri)
@@ -248,11 +227,13 @@ def Convert(config):
 def extract_features(config, link):
     download_video(link)
     reps = ReprStorage(os.path.join(config.repr.directory))
-    reprkey = reprkey_resolver(config, link)
+    reprkey = reprkey_resolver(config)
 
     file_name = link.split('/')[-1]
     if not reps.frame_level.exists(reprkey(os.path.join(config.sources.root, file_name))):
-        VIDEOS_LIST = create_video_list([os.path.join(config.sources.root, file_name)],
+        #VIDEOS_LIST = create_video_list([os.path.join(config.sources.root, file_name)],
+        #                                str(os.getpid()) + "_" + config.proc.video_list_filename)
+        VIDEOS_LIST = create_video_list([link],
                                         str(os.getpid()) + "_" + config.proc.video_list_filename)
         # logging.info('Processed video List saved on :{}'.format(VIDEOS_LIST))
         # Instantiates the extractor
