@@ -146,12 +146,12 @@ function Dashboard(props) {
             <Grid item lg={6} xs={12}>
               <PieChart title="My Matches" categories={matches(theme, counts)}/>
             </Grid>
-            <Grid item lg={6} xs={12}>
+            {/* <Grid item lg={6} xs={12}>
               <StackedLineChart
                 title="Database Matches"
                 {...dbMatches(theme)}
               />
-            </Grid>
+            </Grid> */}
           </Grid>
         </div>
         {/*<BackdropMenu*/}
