@@ -32,6 +32,7 @@ export default class Transform {
         ...meta,
       },
       hash: data.sha256,
+      url: data.file_url,
       fingerprint: data.signature,
       exif: data.exif,
       preview: `/api/v1/files/${data.id}/thumbnail?time=0`,

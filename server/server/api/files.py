@@ -9,7 +9,7 @@ from db.schema import Files
 from thumbnail.ffmpeg import extract_frame_tmp
 from .blueprint import api
 from .helpers import parse_boolean, parse_positive_int, parse_date, parse_enum, get_thumbnails, \
-    resolve_video_file_path, Fields, parse_fields, parse_seq, get_config
+    resolve_video_file_path, Fields, parse_fields, parse_seq, get_config, download_file
 from ..model import database, Transform
 
 # Optional file fields to be loaded
@@ -150,6 +150,14 @@ def get_thumbnail(file_id):
     thumbnails_cache = get_thumbnails()
     thumbnail = thumbnails_cache.get(file.file_path, file.sha256, position=time)
     if thumbnail is None:
+        if file.file_url is not None:
+            thumbnail = extract_frame_tmp(file.file_url , position=time)
+            if thumbnail is None:
+                abort(HTTPStatus.NOT_FOUND.value, f"Timestamp exceeds video url length: {time}")
+            thumbnail = thumbnails_cache.move(file.file_path, file.sha256, position=time, thumbnail=thumbnail)
+            print(thumbnail)
+            return send_from_directory(dirname(thumbnail), basename(thumbnail))
+
         video_path = resolve_video_file_path(file.file_path)
         if not os.path.isfile(video_path):
             abort(HTTPStatus.NOT_FOUND.value, f"Video file is missing: {file.file_path}")

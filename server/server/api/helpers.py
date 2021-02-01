@@ -1,5 +1,10 @@
 import os
 import re
+import requests
+
+from flask import request, make_response
+from urllib.parse import quote
+
 from datetime import datetime
 from functools import cached_property
 from http import HTTPStatus
@@ -25,6 +30,19 @@ def resolve_video_file_path(file_path):
     """Get path to the video file."""
     config = get_config()
     return os.path.join(os.path.abspath(config.video_folder), file_path)
+
+
+def download_file(url):
+    try:
+        r = requests.get(url, timeout=500)
+        response = make_response(r.content)
+        # utf_filename = quote(url.encode("utf-8"))
+        # response.headers["Content-Disposition"] = "attachment;filename*=utf-8''{}".format(utf_filename)
+        # response.headers["Content-Type"] = "application/octet-stream; charset=UTF-8"
+        return response
+    except Exception as err:
+        #print (err)
+        return abort(HTTPStatus.NOT_FOUND.value, f"File url not found: {url}")
 
 
 _TRUTHY = {'1', 'true', ''}
