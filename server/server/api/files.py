@@ -72,7 +72,7 @@ def launch_worker(ipaddr):
     get_mem_size_cmd = "cat /proc/meminfo |grep MemTotal | awk '{print $2}' "
     remote_mem_size = os.popen (ssh_command + get_mem_size_cmd).read()
 
-    if int(remote_mem_size)+1/2 > int(remote_cpu_num):
+    if int(remote_mem_size)/1024+1/2 > int(remote_cpu_num):
         cpu_num = int(remote_cpu_num)-2
     else:
         cpu_num = int(remote_mem_size)+1/2
