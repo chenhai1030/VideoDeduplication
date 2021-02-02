@@ -7,13 +7,12 @@ from ray.services import get_node_ip_address
 from functools import reduce
 import queue, threading
 
-# from apscheduler.schedulers.background import BackgroundScheduler
-
 import logging
 import sys
 import click
 import time
 import lmdb
+import json
 
 from db import Database
 from winnow.feature_extraction import IntermediateCnnExtractor, FrameToVideoRepresentation, SimilarityModel, \
@@ -60,36 +59,71 @@ ray.init(address="0.0.0.0:6379")
     '--save-frames', '-sf',
     help='Whether to save the frames sampled from the videos - overrides save_frames on the config file',
     default=False, is_flag=True)
-def main(config, list_of_files, frame_sampling, save_frames):
+@click.option(
+    '--start-time', '-st',
+    help='Start time  fetch the videos from linda',
+    default=int(time.time())
+)
+@click.option(
+    '--end-time', '-et',
+    help='End time  fetch the videos from linda',
+    default=int(time.time())+600
+)
+def main(config, list_of_files, frame_sampling, save_frames, start_time, end_time):
+    Linda_interface = "http://172.17.26.95:8086/status/linda_orange_material_info?"
     nodes = set(ray.get([f.remote() for _ in range(1000)]))
     nodes |= set(ray.get([f.remote() for _ in range(1000)]))
     logging.info(nodes)
+
     config = resolve_config(
         config_path=config,
         frame_sampling=frame_sampling,
         save_frames=save_frames)
 
-    result_ids = []
-    with open(list_of_files, 'r') as file:
-        reader = csv.reader(file)
+    startTime = start_time
 
-        for row in reader:
-            link = row[0]
-            # print(link)
-            duration = get_video_duration(link)
-            if duration < 240:
-                if not is_video_exist_in_db(config, link.split('/')[-1]):
-                    while True:
-                        try:
-                            # logging.info(ray.available_resources())
-                            resources = list(ray.available_resources())
-                            if 'CPU' in resources:
-                                task_id = extract_features.remote(config, link)
-                                result_ids.append(task_id)
-                                break
-                        except Exception as e:
-                            break
-                        time.sleep(0.5)
+    result_ids = []
+    while end_time - startTime > 0:
+        linda_request_url = Linda_interface + "starttime=" + str(startTime) + "&&" + "endtime=" + str((startTime+600))
+        startTime += 600
+        print(linda_request_url)
+        r = requests.get(linda_request_url)
+        rsp = json.loads(r.text)
+        if rsp['result'] == "success" and range(len(rsp['data']) > 0):
+            linda_list = [rsp['data'][i]['file_path'] for i in range(len(rsp['data']))]
+            create_video_list(linda_list, list_of_files)
+
+            with open(list_of_files, 'r') as file:
+                reader = csv.reader(file)
+
+                for idx, row in enumerate(reader):
+                    link = row[0]
+                    # print(link)
+                    duration = get_video_duration(link)
+                    if duration < 240:
+                        if not is_video_exist_in_db(config, link.split('/')[-1]):
+                            while True:
+                                try:
+                                    # logging.info(ray.available_resources())
+                                    resources = list(ray.available_resources())
+                                    if 'CPU' in resources:
+                                        task_id = extract_features.remote(config, link)
+                                        result_ids.append(task_id)
+                                        break
+                                except Exception as e:
+                                    break
+                                time.sleep(0.5)
+
+                    if idx % 20 == 0:
+                        for nodeIP in nodes:
+                            node_id = f"node:{nodeIP}"
+                            Convert.options(resources={node_id: 0.01})
+                            Convert.remote(config)
+
+            for nodeIP in nodes:
+                node_id = f"node:{nodeIP}"
+                Convert.options(resources={node_id: 0.01})
+                ray.get(Convert.remote(config))
 
     logging.info("task dis done!")
 
@@ -103,6 +137,13 @@ def main(config, list_of_files, frame_sampling, save_frames):
     merge_files(nodes)
     os.popen('python /project/generate_matches.py')
     logging.info("All task Done!!")
+
+
+def Covert_from_all_nodes(nodes, config):
+    for nodeIP in nodes:
+        node_id = f"node:{nodeIP}"
+        Convert.options(resources={node_id: 0.01})
+        Convert.remote(config)
 
 
 def collect_files(nodes):
@@ -190,6 +231,7 @@ def merge_lmdb(lmdb1, lmdb2, result_lmdb):
     logging.info('Merge success!')
 
 
+@ray.remote
 def Convert(config):
     reps = ReprStorage(os.path.join(config.repr.directory))
     logging.info('Converting Frame by Frame representations to Video Representations')
@@ -249,7 +291,7 @@ def extract_features(config, link):
         remove_file(VIDEOS_LIST)
         remove_file("/project/data/test_dataset/" + file_name)
         os.system("rm -rf /project/core.*")
-        Convert(config)
+        # Convert(config)
 
 
 def is_video_exist_in_db(config, file):
