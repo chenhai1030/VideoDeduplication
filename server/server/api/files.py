@@ -68,15 +68,7 @@ def launch_worker(ipaddr):
     get_cpu_num_cmd = "cat /proc/cpuinfo |grep \"cpu cores\" | wc -l"
     remote_cpu_num = os.popen (ssh_command + "'"+get_cpu_num_cmd+"'").read()
 
-    get_mem_size_cmd = "cat /proc/meminfo |grep MemTotal |awk \"{print $2}\""
-    remote_mem_size_byte = os.popen(ssh_command + "'" + get_mem_size_cmd + "'").read()
-    remote_mem_size = int(remote_mem_size_byte)/1024
-
-    if (remote_mem_size+1)/2 > int(remote_cpu_num):
-        cpu_num = int(remote_cpu_num) - 2
-    else:
-        cpu_num = (remote_mem_size+1) /2
-    cpu_num_command = "--num-cpus=" + str(cpu_num)
+    cpu_num_command = "--num-cpus=" + str(int(remote_cpu_num)/2)
 
     head_ip_addr = get_ray_head_ip()
     if len(head_ip_addr) != 0:

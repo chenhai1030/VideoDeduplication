@@ -81,10 +81,10 @@ def main(config, list_of_files, frame_sampling, save_frames, start_time, end_tim
         save_frames=save_frames)
 
     startTime = start_time
-
     result_ids = []
     while end_time - startTime > 0:
         linda_request_url = Linda_interface + "starttime=" + str(startTime) + "&&" + "endtime=" + str((startTime+600))
+        time.sleep(5)
         startTime += 600
         print(linda_request_url)
         r = requests.get(linda_request_url)
