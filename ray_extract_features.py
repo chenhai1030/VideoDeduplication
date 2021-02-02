@@ -83,9 +83,11 @@ def main(config, list_of_files, frame_sampling, save_frames, start_time, end_tim
     startTime = start_time
     result_ids = []
     while end_time - startTime > 0:
+        if startTime >= (time.time()):
+            startTime = start_time
+            time.sleep(5)
         linda_request_url = Linda_interface + "starttime=" + str(startTime) + "&&" + "endtime=" + str((startTime+600))
-        time.sleep(5)
-        startTime += 600
+
         print(linda_request_url)
         r = requests.get(linda_request_url)
         rsp = json.loads(r.text)
@@ -98,10 +100,12 @@ def main(config, list_of_files, frame_sampling, save_frames, start_time, end_tim
 
                 for idx, row in enumerate(reader):
                     link = row[0]
-                    # print(link)
                     duration = get_video_duration(link)
+                    # print(link, duration)
                     if duration < 240:
-                        if not is_video_exist_in_db(config, link.split('/')[-1]):
+                        is_in_db = is_video_exist_in_db(config, link.split('/')[-1])
+                        # print (is_in_db, link)
+                        if not is_in_db:
                             while True:
                                 try:
                                     # logging.info(ray.available_resources())
@@ -111,19 +115,23 @@ def main(config, list_of_files, frame_sampling, save_frames, start_time, end_tim
                                         result_ids.append(task_id)
                                         break
                                 except Exception as e:
-                                    break
+                                    print(e)
+
                                 time.sleep(0.5)
 
-                    if idx % 20 == 0:
-                        for nodeIP in nodes:
-                            node_id = f"node:{nodeIP}"
-                            Convert.options(resources={node_id: 0.01})
-                            Convert.remote(config)
+                #     if idx % 20 == 0:
+                #         for nodeIP in nodes:
+                #             node_id = f"node:{nodeIP}"
+                #             Convert.options(resources={node_id: 0.01})
+                #             Convert.remote(config)
+                #
+                # for nodeIP in nodes:
+                #     node_id = f"node:{nodeIP}"
+                #     Convert.options(resources={node_id: 0.01})
+                #     ray.get(Convert.remote(config))
 
-            for nodeIP in nodes:
-                node_id = f"node:{nodeIP}"
-                Convert.options(resources={node_id: 0.01})
-                ray.get(Convert.remote(config))
+        startTime += 600
+        time.sleep(1)
 
     logging.info("task dis done!")
 
@@ -137,13 +145,6 @@ def main(config, list_of_files, frame_sampling, save_frames, start_time, end_tim
     merge_files(nodes)
     os.popen('python /project/generate_matches.py')
     logging.info("All task Done!!")
-
-
-def Covert_from_all_nodes(nodes, config):
-    for nodeIP in nodes:
-        node_id = f"node:{nodeIP}"
-        Convert.options(resources={node_id: 0.01})
-        Convert.remote(config)
 
 
 def collect_files(nodes):
@@ -231,7 +232,6 @@ def merge_lmdb(lmdb1, lmdb2, result_lmdb):
     logging.info('Merge success!')
 
 
-@ray.remote
 def Convert(config):
     reps = ReprStorage(os.path.join(config.repr.directory))
     logging.info('Converting Frame by Frame representations to Video Representations')
@@ -265,7 +265,7 @@ def Convert(config):
         bulk_write(reps.signature, signatures)
 
 
-@ray.remote(num_cpus=1, max_calls=1)
+@ray.remote(num_cpus=1)
 def extract_features(config, link):
     download_video(link)
     reps = ReprStorage(os.path.join(config.repr.directory))
@@ -291,7 +291,7 @@ def extract_features(config, link):
         remove_file(VIDEOS_LIST)
         remove_file("/project/data/test_dataset/" + file_name)
         os.system("rm -rf /project/core.*")
-        # Convert(config)
+        Convert(config)
 
 
 def is_video_exist_in_db(config, file):

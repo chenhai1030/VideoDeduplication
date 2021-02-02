@@ -64,17 +64,27 @@ def launch_head(ipaddr):
 
 @api.route('/worker/<string:ipaddr>')
 def launch_worker(ipaddr):
+    cpu_num = 0
     ssh_command = "ssh chenhai@" + ipaddr + " "
     get_cpu_num_cmd = "cat /proc/cpuinfo |grep \"cpu cores\" | wc -l"
     remote_cpu_num = os.popen (ssh_command + "'"+get_cpu_num_cmd+"'").read()
 
-    cpu_num_command = "--num-cpus=" + str(int(remote_cpu_num)/2)
+    get_mem_size_cmd = "cat /proc/meminfo |grep MemTotal | awk '{print $2}' "
+    remote_mem_size = os.popen (ssh_command + get_mem_size_cmd).read()
+
+    if int(remote_mem_size)+1/2 > int(remote_cpu_num):
+        cpu_num = int(remote_cpu_num)-2
+    else:
+        cpu_num = int(remote_mem_size)+1/2
+    cpu_num_command = "--num-cpus=" + str(cpu_num)
 
     head_ip_addr = get_ray_head_ip()
     if len(head_ip_addr) != 0:
         remote_command = "docker exec -i videodeduplication_dedup-app_1 /anaconda/envs/winnow/bin/ray start " \
                         " --address='" + head_ip_addr + ":6379'" + " --redis-password='5241590000000000' " + cpu_num_command
                         # " --address='172.17.7.156:6379' --redis-password='5241590000000000' " + cpu_num_command
+    else:
+        remote_command = "pwd"
     all_command = ssh_command + "'"+remote_command+"'"
     ret = os.popen(all_command)
     return ret.read()
@@ -96,7 +106,8 @@ def stop_worker(ipaddr):
 @api.route('/clean/<string:ipaddr>')
 def clear_node(ipaddr):
     command = "ssh chenhai@" + ipaddr + " "
-    remote_command = "docker exec -i videodeduplication_dedup-app_1 sh -c \"rm -rf /project/*_video_dataset_list.txt core.* /project/data/test_dataset/* \" "
+    remote_command = "docker exec -i videodeduplication_dedup-app_1 sh -c \"rm -rf /project/*_video_dataset_list.txt " \
+                     "core.* /project/data/test_dataset/* /project/data/representations/* \" "
     all_command = command + "'" + remote_command + "'"
     ret = os.popen(all_command)
     return ret.read()
