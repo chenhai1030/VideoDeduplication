@@ -88,7 +88,7 @@ class DBResultStorage:
 
                 # Update existing files
                 for file in files:
-                    sig_value = index.pop((file.file_path, file.sha256, file.file_url))
+                    sig_value = index.pop((file.file_path, file.sha256),[None])
                     sig_entity = file.signature or Signature(file_id=file.id)
                     sig_entity.signature = sig_value
                     file.signature = sig_entity

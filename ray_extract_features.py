@@ -87,51 +87,45 @@ def main(config, list_of_files, frame_sampling, save_frames, start_time, end_tim
             startTime = start_time
             time.sleep(5)
         linda_request_url = Linda_interface + "starttime=" + str(startTime) + "&&" + "endtime=" + str((startTime+600))
-
+        startTime += 600
         print(linda_request_url)
         r = requests.get(linda_request_url)
         rsp = json.loads(r.text)
         if rsp['result'] == "success" and range(len(rsp['data']) > 0):
             linda_list = [rsp['data'][i]['file_path'] for i in range(len(rsp['data']))]
-            create_video_list(linda_list, list_of_files)
+            # create_video_list(linda_list, list_of_files)
 
-            with open(list_of_files, 'r') as file:
-                reader = csv.reader(file)
-
-                for idx, row in enumerate(reader):
-                    link = row[0]
+            # with open(list_of_files, 'r') as file:
+            #     reader = csv.reader(file)
+            for idx, value in enumerate(linda_list):
+                link = value
+                is_in_db = is_video_exist_in_db(config, link.split('/')[-1])
+                if not is_in_db:
                     duration = get_video_duration(link)
-                    # print(link, duration)
                     if duration < 240:
-                        is_in_db = is_video_exist_in_db(config, link.split('/')[-1])
-                        # print (is_in_db, link)
-                        if not is_in_db:
-                            while True:
-                                try:
-                                    # logging.info(ray.available_resources())
-                                    resources = list(ray.available_resources())
-                                    if 'CPU' in resources:
-                                        task_id = extract_features.remote(config, link)
-                                        result_ids.append(task_id)
-                                        break
-                                except Exception as e:
-                                    print(e)
+                        while True:
+                            try:
+                                # logging.info(ray.available_resources())
+                                resources = list(ray.available_resources())
+                                if 'CPU' in resources:
+                                    task_id = extract_features.remote(config, link)
+                                    result_ids.append(task_id)
+                                    break
+                            except Exception as e:
+                                print(e)
 
-                                time.sleep(0.5)
+                            time.sleep(0.5)
 
-                #     if idx % 20 == 0:
-                #         for nodeIP in nodes:
-                #             node_id = f"node:{nodeIP}"
-                #             Convert.options(resources={node_id: 0.01})
-                #             Convert.remote(config)
-                #
-                # for nodeIP in nodes:
-                #     node_id = f"node:{nodeIP}"
-                #     Convert.options(resources={node_id: 0.01})
-                #     ray.get(Convert.remote(config))
-
-        startTime += 600
-        time.sleep(1)
+            #     if idx % 30 == 0:
+            #         for nodeIP in nodes:
+            #             node_id = f"node:{nodeIP}"
+            #             Convert.options(resources={node_id: 0.01})
+            #             Convert.remote(config)
+            #
+            # for nodeIP in nodes:
+            #     node_id = f"node:{nodeIP}"
+            #     Convert.options(resources={node_id: 0.01})
+            #     ray.get(Convert.remote(config))
 
     logging.info("task dis done!")
 
@@ -242,30 +236,30 @@ def Convert(config):
     sm = SimilarityModel()
     vid_level_iterator = bulk_read(reps.video_level)
 
-    assert len(vid_level_iterator) > 0, 'No Signatures left to be processed'
+    # assert len(vid_level_iterator) > 0, 'No Signatures left to be processed'
+    if len(vid_level_iterator) > 0:
+        signatures = sm.predict(vid_level_iterator)  # Get {ReprKey => signature} dict
 
-    signatures = sm.predict(vid_level_iterator)  # Get {ReprKey => signature} dict
+        logging.info('Saving Video Signatures on :{}'.format(reps.signature.directory))
+        if config.database.use:
+            # Convert dict to list of (path, sha256, signature) tuples
+            # entries = [(key.path, key.hash, sig) for key, sig in signatures.items()]
+            ## use link instead of path
+            entries = [(key.path, key.hash, key.url, sig) for key, sig in signatures.items()]
 
-    logging.info('Saving Video Signatures on :{}'.format(reps.signature.directory))
-    if config.database.use:
-        # Convert dict to list of (path, sha256, signature) tuples
-        # entries = [(key.path, key.hash, sig) for key, sig in signatures.items()]
-        ## use link instead of path
-        entries = [(key.path, key.hash, key.url, sig) for key, sig in signatures.items()]
+            # Connect to database
+            database = Database(uri=config.database.uri)
+            database.create_tables()
 
-        # Connect to database
-        database = Database(uri=config.database.uri)
-        database.create_tables()
+            # Save signatures
+            result_storage = DBResultStorage(database)
+            result_storage.add_signatures(entries)
 
-        # Save signatures
-        result_storage = DBResultStorage(database)
-        result_storage.add_signatures(entries)
-
-    if config.save_files:
-        bulk_write(reps.signature, signatures)
+        if config.save_files:
+            bulk_write(reps.signature, signatures)
 
 
-@ray.remote(num_cpus=1)
+@ray.remote(num_cpus=1, max_calls=1)
 def extract_features(config, link):
     download_video(link)
     reps = ReprStorage(os.path.join(config.repr.directory))

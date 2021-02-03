@@ -56,7 +56,7 @@ def launch_head(ipaddr):
     set_ray_head_ip(ipaddr)
     ssh_command = "ssh chenhai@" + ipaddr + " "
     remote_command = "docker exec -i videodeduplication_dedup-app_1 /anaconda/envs/winnow/bin/ray start " \
-                    " --head --port=6379 --dashboard-host 0.0.0.0 --num-cpus=2"
+                    " --head --port=6379 --dashboard-host 0.0.0.0 --num-cpus=4"
     all_command = ssh_command + "'" + remote_command + "'"
     ret = os.popen(all_command)
     return ret.read()
@@ -110,6 +110,19 @@ def clear_node(ipaddr):
     remote_command = "docker exec -i videodeduplication_dedup-app_1 sh -c \"rm -rf /project/*_video_dataset_list.txt " \
                      "core.* /project/data/test_dataset/* /project/data/representations/* \" "
     all_command = command + "'" + remote_command + "'"
+    ret = os.popen(all_command)
+    return ret.read()
+
+
+@api.route('/launch/<string:startTime>-<string:endTime>')
+def launch_task(startTime, endTime):
+    # command = "ssh chenhai@" + get_ray_head_ip() + " "
+    command = "ssh chenhai@172.17.7.156 "
+    remote_command = "docker exec -i videodeduplication_dedup-app_1 /bin/bash -c  \"source activate winnow && nohup python ray_extract_features.py " \
+                     "-st " + startTime + " " \
+                     "-et " + endTime + " & \""
+    all_command = command + "'" + remote_command + "'"
+    print(all_command)
     ret = os.popen(all_command)
     return ret.read()
 
