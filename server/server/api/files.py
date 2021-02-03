@@ -116,8 +116,8 @@ def clear_node(ipaddr):
 
 @api.route('/launch/<string:startTime>-<string:endTime>')
 def launch_task(startTime, endTime):
-    # command = "ssh chenhai@" + get_ray_head_ip() + " "
-    command = "ssh chenhai@172.17.7.156 "
+    command = "ssh chenhai@" + get_ray_head_ip() + " "
+    # command = "ssh chenhai@172.17.7.156 "
     remote_command = "docker exec -i videodeduplication_dedup-app_1 /bin/bash -c  \"source activate winnow && nohup python ray_extract_features.py " \
                      "-st " + startTime + " " \
                      "-et " + endTime + " & \""
