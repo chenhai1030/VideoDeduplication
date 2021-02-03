@@ -55,7 +55,7 @@ function ApplicationLayout(props) {
           <AppMenu className={classes.menu} />
           <Switch>
             <Route exact path={routes.home}>
-              <Redirect to={routes.analytics.home} />
+              <Redirect to={routes.collection.home} />
             </Route>
             <Route path={routes.analytics.home}>
               <DashboardPage className={classes.body} />
