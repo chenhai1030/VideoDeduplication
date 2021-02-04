@@ -121,7 +121,17 @@ def launch_task(startTime, endTime):
     remote_command = "docker exec -i videodeduplication_dedup-app_1 /bin/bash -c  \"source activate winnow && nohup python ray_extract_features.py " \
                      "-st " + startTime + " " \
                      "-et " + endTime + " & \""
-    all_command = command + "'" + remote_command + "'"
+    all_command = command + "'" + remote_command + "' &"
+    print(all_command)
+    os.system(all_command)
+    return ""
+
+
+@api.route('/task_stop/')
+def stop_task():
+    command = "ssh chenhai@" + get_ray_head_ip() + " "
+    remote_kill_command = "docker exec -i videodeduplication_dedup-app_1 ps -aux |grep ray_extract_features.py |xargs kill -9"
+    all_command = command + remote_kill_command + " &"
     print(all_command)
     ret = os.popen(all_command)
     return ret.read()
