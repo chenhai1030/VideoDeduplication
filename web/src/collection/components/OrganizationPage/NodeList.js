@@ -27,24 +27,24 @@ function NodeList(props) {
     showList?(
       <div className={classes.workernodes}> 
         {workers.map((item) => (
-        <form key={item.nodeIP}>
-          <span className={classes.nodeip}>
-            {item.nodeIP}
-          </span>
-          <div className={classes.buttons}>
-            <SwitchButton 
-              state={state}
-              ipaddr={item.nodeIP}
-              status={item.status}
-              onChange={onChange}
-            />
-            <RemoveButton
-              state={state}
-              ipaddr={item.nodeIP}
-              onRemove={onRemove}
-            />
-          </div>
-        </form>
+          <form key={item.nodeIP}>
+            <span className={classes.nodeip}>
+              {item.nodeIP}
+            </span>
+            <div className={classes.buttons}>
+              <SwitchButton 
+                state={state}
+                ipaddr={item.nodeIP}
+                status={item.status}
+                onChange={onChange}
+              />
+              <RemoveButton
+                state={state}
+                ipaddr={item.nodeIP}
+                onRemove={onRemove}
+              />
+            </div>
+          </form>
         ))}
       </div>
     ):null

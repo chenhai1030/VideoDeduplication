@@ -33,7 +33,7 @@ function RemoveButton(props) {
       </Hidden>
       <Hidden mdUp>
         <Tooltip title={intl.formatMessage({ id: "actions.RemoveNode" })}>
-          <SquaredIconButton className={className} >
+          <SquaredIconButton className={className} onClick={handleClick}>
             <RemoveIcon />
           </SquaredIconButton>
         </Tooltip>

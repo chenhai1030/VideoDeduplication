@@ -136,6 +136,24 @@ export default class Server {
     }   
   }
 
+  async rayTaskLaunch(startTime, endTime){
+    try{
+      const response = await this.axios.get(`/launch/${startTime}-${endTime}`);
+      return Response.ok(response); 
+    }catch (error) {
+      return this.errorResponse(error);
+    }   
+  }
+
+  async rayTaskStop(){
+    try{
+      const response = await this.axios.get(`/task_stop/`);
+      return Response.ok(response); 
+    }catch (error) {
+      return this.errorResponse(error);
+    }    
+  }
+
   errorResponse(error) {
     if (error.response == null) {
       return Response.clientError(error);

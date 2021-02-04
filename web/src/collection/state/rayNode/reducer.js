@@ -7,17 +7,33 @@ import {
   ACTION_RAY_NODE_STATUS_UPDATE,
   ACTION_RAY_NODE_CLEAN,
   ACTION_RAY_NODE_REMOVE,
+  ACTION_RAY_TIMESTAMP_UPDATE,
+  ACTION_RAY_TASK_LAUNCH,
+  ACTION_RAY_START_HEAD_SUCCESS,
+  ACTION_RAY_STOP_NODE_SUCCESS,
+  ACTION_RAY_START_WORKER_SUCCESS,
+  ACTION_TASK_LAUNCH_SUCCESS,
+  ACTION_TASK_STOP_SUCCESS,
 } from "./actions";
 
 export default function rayNodeStatusReducer(state = initialState, action) {
   switch (action.type) {
     case ACTION_RAY_HEAD_LAUNCH:
-      state.stopped=false;
       return {...state,
         ipaddr: action.ipaddr,
       };
+    case ACTION_RAY_START_HEAD_SUCCESS:
+      state.headIP=action.ipaddr
+      state.stopped=false;
+      return {...state,};
+    case ACTION_RAY_STOP_NODE_SUCCESS:
+      if (action.ipaddr == state.headIP){
+        state.stopped=true;
+      }
+      return {...state,};
+    case ACTION_RAY_START_WORKER_SUCCESS:
+      return {...state,};
     case ACTION_RAY_HEAD_STOP:
-      state.stopped=true;
       return {...state,
         ipaddr: action.ipaddr,
       };
@@ -52,6 +68,21 @@ export default function rayNodeStatusReducer(state = initialState, action) {
         }
       }
       return {...state,};
+    case ACTION_RAY_TIMESTAMP_UPDATE:
+      if (action.isStartTime){
+        state.startTime = action.timestamp
+      }else{
+        state.endTime = action.timestamp
+      }
+      return {...state,};
+    case ACTION_RAY_TASK_LAUNCH:
+      return {...state,};
+    case ACTION_TASK_LAUNCH_SUCCESS:
+      state.taskRunning = true;
+      return {...state,}
+    case ACTION_TASK_STOP_SUCCESS:
+      state.taskRunning = false
+      return {...state,}
     default:
       return state
   }

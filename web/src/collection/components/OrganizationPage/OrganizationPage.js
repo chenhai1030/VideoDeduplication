@@ -4,6 +4,8 @@ import { makeStyles } from "@material-ui/styles";
 import AppPage from "../../../application/components/AppPage";
 import { useIntl } from "react-intl";
 import HeadNode from "./HeadNode";
+import DatePane from "./DatePane/DatePane";
+import LaunchButton from "./LaunchButton";
 import WorkerNode from "./WorkerNode";
 import NodeList from "./NodeList";
 import { useDispatch, useSelector } from "react-redux";
@@ -16,6 +18,9 @@ import {
   updateNodeStatus,
   removeNode,
   cleanNode,
+  updateTimeStamp,
+  launchTask,
+  stopTask,
 } from "../../state/rayNode/actions";
 
 
@@ -30,9 +35,18 @@ const useStyles = makeStyles((theme) => ({
   body: {
     height: "100%",
   },
-  headnode:{
+  headnode: {
     marginTop: theme.spacing(1),
     marginBottom: theme.spacing(1)
+  },
+  datepane: {
+    marginTop: theme.spacing(3),
+    marginLeft: theme.dimensions.content.padding*7,
+    alignItems: "stretch",
+  },
+  launchbutton: {
+    marginTop: theme.spacing(7), 
+    marginLeft: theme.dimensions.content.padding*2,
   },
   nodelist:{
     display: "flex",
@@ -40,6 +54,15 @@ const useStyles = makeStyles((theme) => ({
     minWidth: theme.dimensions.collectionPage.width,
   },
 }))
+
+
+function getUnixTime(dateStr){
+  var newstr = dateStr.replace(/-/g,'/').replace(/T/g, ' '); 
+  var date =  new Date(newstr); 
+  var time_str = date.getTime().toString();
+  return time_str.substr(0, 10);
+}
+
 
 function OrganizationPage(props) {
   const { className } = props;
@@ -72,8 +95,6 @@ function OrganizationPage(props) {
   }, [])
 
   const handleWorkerChange = useCallback((ipaddr, status) => {
-    console.info(ipaddr)
-    // console.info(status);
     if (status=="on"){
       dispatch(updateNodeStatus(ipaddr, "on"));
       dispatch(launchWorkerNode(ipaddr));
@@ -88,6 +109,24 @@ function OrganizationPage(props) {
     dispatch(removeNode(ipaddr));
   }, [])
 
+  const handleDatePaneFrom = useCallback((value) =>{
+    let startTimeStamp=getUnixTime(value)
+    dispatch(updateTimeStamp(true, startTimeStamp))
+  },[])
+
+  const handleDatePaneTo = useCallback((value) =>{
+    let endTimeStamp=getUnixTime(value)
+    dispatch(updateTimeStamp(false, endTimeStamp))
+  },[])
+
+  const handleLaunchTask = useCallback((startTime, endTime) => {
+    dispatch(launchTask(startTime, endTime))
+  },[])
+
+  const handleStopTask = useCallback(()=>{
+    dispatch(stopTask())
+  })
+
   return (
     <AppPage
       title={intl.formatMessage({ id: "nav.organization" })}
@@ -101,6 +140,20 @@ function OrganizationPage(props) {
           ipaddr={headIPaddr}
           onClear={handleClear}
         />
+        <div className={classes.datepane}>
+          <DatePane
+            className={classes.datepane}
+            onFromDateChange={handleDatePaneFrom}
+            onToDateChange={handleDatePaneTo}
+          />
+        </div>
+        <div className={classes.launchbutton}>
+          <LaunchButton
+            state={rayNodeStatus}
+            onLaunch={handleLaunchTask}
+            onStopTask={handleStopTask}
+          />
+        </div>
       </div>
       <div className={classes.container} >
         <WorkerNode
