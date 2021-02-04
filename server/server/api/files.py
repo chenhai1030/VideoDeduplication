@@ -76,7 +76,7 @@ def launch_worker(ipaddr):
     else:
         cpu_num = int(((int(remote_mem_size)/1024/1024)+1)/2)
     cpu_num_command = "--num-cpus=" + str(cpu_num)
-    print(remote_mem_size)
+    # print(remote_mem_size)
     print (int(((int(remote_mem_size)/1024/1024)+1)/2))
 
     head_ip_addr = get_ray_head_ip()
@@ -98,8 +98,8 @@ def stop_worker(ipaddr):
     all_command = command + "'"+remote_command+"'"
     # print(all_command)
     os.system(all_command)
-    remote_kill_command = "docker exec -i videodeduplication_dedup-app_1 ps -aux |grep ray |awk '{print $2}'|xargs kill -9"
-    all_command_kill = command + "'" + remote_kill_command + "'"
+    remote_kill_command = "docker exec -i videodeduplication_dedup-app_1 ps -aux |grep ray |awk '{print $2}'| xargs kill -9"
+    all_command_kill = command  + remote_kill_command
     ret = os.popen(all_command_kill)
     return ret.read()
 
