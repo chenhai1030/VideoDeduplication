@@ -20,6 +20,8 @@ import {
   launchTaskFailure,
   stopTaskSuccess,
   stopTaskFailure,
+  cleanNodeSuccess,
+  cleanNodeFailure,
 } from "./actions"
 
 function resolvRayActions(rayAction) {
@@ -35,6 +37,8 @@ function resolvRayActions(rayAction) {
       return [launchTaskSuccess, launchTaskFailure];
     case ACTION_RAY_TASK_STOP:
       return [stopTaskSuccess, stopTaskFailure];
+    case ACTION_RAY_NODE_CLEAN:
+      return [cleanNodeSuccess, cleanNodeFailure];
     // default:
     //   throw new Error(`Unsupported ray action type: ${rayAction.type}`);
   }

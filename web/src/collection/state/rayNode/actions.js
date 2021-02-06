@@ -21,6 +21,8 @@ export const ACTION_TASK_LAUNCH_SUCCESS = "ray.TASK_LAUNCH_SUCCESS";
 export const ACTION_TASK_LAUNCH_FAILURE = "ray.TASK_LAUNCH_FAILURE ";
 export const ACTION_TASK_STOP_SUCCESS = "ray.TASK_STOP_SUCCESS";
 export const ACTION_TASK_STOP_FAILURE = "ray.TASK_STOP_FAILURE ";
+export const ACTION_RAY_NODE_CLEAN_SUCCESS = "ray.NODE_CLEAN_SUCCESS";
+export const ACTION_RAY_NODE_CLEAN_FAILURE = "ray.NODE_CLEAN_FAILURE";
 
 export function rayStartHeadSuccess(ipaddr) {
   return { type: ACTION_RAY_START_HEAD_SUCCESS, ipaddr};
@@ -104,4 +106,12 @@ export function stopTaskSuccess() {
 
 export function stopTaskFailure(error) {
   return { type: ACTION_TASK_STOP_FAILURE, error };
+}
+
+export function cleanNodeSuccess(){
+  return { type: ACTION_RAY_NODE_CLEAN_SUCCESS};
+}
+
+export function cleanNodeFailure(){
+  return { type: ACTION_RAY_NODE_CLEAN_FAILURE}
 }

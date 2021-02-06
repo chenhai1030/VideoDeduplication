@@ -33,7 +33,7 @@ function ClearButton(props) {
       </Hidden>
       <Hidden mdUp>
         <Tooltip title={intl.formatMessage({ id: "actions.CleanNodes" })}>
-          <SquaredIconButton className={className} >
+          <SquaredIconButton className={className} onClick={handleClick}>
             <CleanIcon />
           </SquaredIconButton>
         </Tooltip>
