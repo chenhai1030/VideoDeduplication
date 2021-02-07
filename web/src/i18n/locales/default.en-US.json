@@ -188,6 +188,7 @@
     "video.error.missing": "File Missing",
     "video.error.load": "Loading Error",
     "video.error.playback": "Playback Error",
-    "ray.head.ipaddr" : "172.17.12.189"
+    "ray.head.ipaddr" : "172.17.12.189",
+    "ray.dashboard.addr" : "http://172.17.12.189:8265/" 
   }
 }
