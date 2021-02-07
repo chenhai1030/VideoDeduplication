@@ -122,10 +122,10 @@ def main(config, list_of_files, frame_sampling, save_frames, start_time, end_tim
             #             Convert.options(resources={node_id: 0.01})
             #             Convert.remote(config)
             #
-            # for nodeIP in nodes:
-            #     node_id = f"node:{nodeIP}"
-            #     Convert.options(resources={node_id: 0.01})
-            #     ray.get(Convert.remote(config))
+            for nodeIP in nodes:
+                node_id = f"node:{nodeIP}"
+                Convert.options(resources={node_id: 0.01})
+                ray.get(Convert.remote(config))
 
     logging.info("task dis done!")
 
@@ -226,6 +226,7 @@ def merge_lmdb(lmdb1, lmdb2, result_lmdb):
     logging.info('Merge success!')
 
 
+@ray.remote(num_cpus=1, max_calls=1)
 def Convert(config):
     reps = ReprStorage(os.path.join(config.repr.directory))
     logging.info('Converting Frame by Frame representations to Video Representations')
@@ -280,12 +281,12 @@ def extract_features(config, link):
                                              save_frames=config.proc.save_frames,
                                              model=(load_featurizer(model_path)))
         # Starts Extracting Frame Level Features
-        extractor.start(batch_size=16, cores=4)
+        extractor.start(batch_size=8, cores=4)
 
         remove_file(VIDEOS_LIST)
         remove_file("/project/data/test_dataset/" + file_name)
         os.system("rm -rf /project/core.*")
-        Convert(config)
+        # Convert(config)
 
 
 def is_video_exist_in_db(config, file):
