@@ -116,12 +116,6 @@ def main(config, list_of_files, frame_sampling, save_frames, start_time, end_tim
 
                             time.sleep(0.5)
 
-            #     if idx % 30 == 0:
-            #         for nodeIP in nodes:
-            #             node_id = f"node:{nodeIP}"
-            #             Convert.options(resources={node_id: 0.01})
-            #             Convert.remote(config)
-            #
             for nodeIP in nodes:
                 node_id = f"node:{nodeIP}"
                 Convert.options(resources={node_id: 0.01})
@@ -260,9 +254,10 @@ def Convert(config):
             bulk_write(reps.signature, signatures)
 
 
-@ray.remote(num_cpus=1, max_calls=1)
+@ray.remote(num_cpus=1)
 def extract_features(config, link):
-    download_video(link)
+    if download_video(link) is None:
+        return
     reps = ReprStorage(os.path.join(config.repr.directory))
     reprkey = reprkey_resolver(config)
 
@@ -344,6 +339,9 @@ def download_video(link):
     file_path = "/project/data/test_dataset/"
     if not os.path.exists(file_path):
         os.makedirs(file_path)
+
+    if os.path.exists(file_path + file_name):
+        return None
     # download started
     with open(file_path + file_name, 'wb') as file:
         for chunk in r.iter_content(chunk_size=1024 * 1024):
