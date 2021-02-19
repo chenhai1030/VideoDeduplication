@@ -94,6 +94,7 @@ def main(config, list_of_files, frame_sampling, save_frames, start_time, end_tim
         if rsp['result'] == "success" and range(len(rsp['data']) > 0):
             linda_list = [rsp['data'][i]['file_path'] for i in range(len(rsp['data']))]
             # create_video_list(linda_list, list_of_files)
+            record_video_list(linda_request_url, linda_list)
 
             # with open(list_of_files, 'r') as file:
             #     reader = csv.reader(file)
@@ -254,7 +255,7 @@ def Convert(config):
             bulk_write(reps.signature, signatures)
 
 
-@ray.remote(num_cpus=1)
+@ray.remote(max_calls=1)
 def extract_features(config, link):
     if download_video(link) is None:
         return
@@ -330,6 +331,21 @@ def is_internal_ip(ip):
 def remove_file(file_path):
     if os.path.exists(file_path):
         os.remove(file_path)
+
+
+def record_video_list(url, list):
+    file_path = "/project/data/record.txt"
+    need_record = True
+    with open(file_path, 'a+') as file:
+        for line in file.readlines():
+            if line == url:
+                need_record = False
+        if need_record:
+            file.write(url)
+            file.write('\r\n')
+            for list_video in list:
+                file.write(list_video)
+                file.write('\r\n')
 
 
 def download_video(link):
