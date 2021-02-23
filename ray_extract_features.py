@@ -39,7 +39,7 @@ file_handler = logging.FileHandler('test.log')
 logger.addHandler(file_handler)
 
 ray.init(address="0.0.0.0:6379")
-
+head_ip = "172.17.12.189"
 
 @click.command()
 @click.option(
@@ -82,45 +82,52 @@ def main(config, list_of_files, frame_sampling, save_frames, start_time, end_tim
 
     startTime = start_time
     result_ids = []
+    prepare_to_end = False
     while end_time - startTime > 0:
         if startTime >= (time.time()):
             startTime = start_time
             time.sleep(5)
         linda_request_url = Linda_interface + "starttime=" + str(startTime) + "&&" + "endtime=" + str((startTime+600))
         startTime += 600
+        if startTime >= end_time:
+            prepare_to_end = True
         print(linda_request_url)
         r = requests.get(linda_request_url)
         rsp = json.loads(r.text)
         if rsp['result'] == "success" and range(len(rsp['data']) > 0):
             linda_list = [rsp['data'][i]['file_path'] for i in range(len(rsp['data']))]
+            linda_list_temp = linda_list.copy()
             # create_video_list(linda_list, list_of_files)
-            record_video_list(linda_request_url, linda_list)
+            record_video_list(linda_request_url, linda_list_temp)
 
             # with open(list_of_files, 'r') as file:
             #     reader = csv.reader(file)
-            for idx, value in enumerate(linda_list):
+            for idx, value in enumerate(linda_list_temp):
                 link = value
                 is_in_db = is_video_exist_in_db(config, link.split('/')[-1])
                 if not is_in_db:
-                    duration = get_video_duration(link)
-                    if duration < 240:
-                        while True:
-                            try:
-                                # logging.info(ray.available_resources())
-                                resources = list(ray.available_resources())
-                                if 'CPU' in resources:
+                    # duration = get_video_duration(link)
+                    # if duration < 240:
+                    while True:
+                        try:
+                            # logging.info(ray.available_resources())
+                            resources = list(ray.available_resources())
+                            if 'CPU' in resources:
+                                if prepare_to_end:
                                     task_id = extract_features.remote(config, link)
                                     result_ids.append(task_id)
-                                    break
-                            except Exception as e:
-                                print(e)
-
-                            time.sleep(0.5)
+                                else:
+                                    extract_features.remote(config, link)
+                                break
+                        except Exception as e:
+                            print(e)
+                        time.sleep(0.1)
 
             for nodeIP in nodes:
                 node_id = f"node:{nodeIP}"
                 Convert.options(resources={node_id: 0.01})
-                ray.get(Convert.remote(config))
+                Convert.remote(config)
+                # ray.get(Convert.remote(config))
 
     logging.info("task dis done!")
 
@@ -137,41 +144,47 @@ def main(config, list_of_files, frame_sampling, save_frames, start_time, end_tim
 
 
 def collect_files(nodes):
+    global head_ip
     if not os.path.exists("/project/data/rsync_path"):
         os.makedirs("/project/data/rsync_path")
     for node in nodes:
-        command = "rsync -avz --password-file=/etc/rsyncd.passwd chenhai@" + node + \
-                  "::video /project/data/rsync_path/" + node
-        ret = os.popen(command)
-        logging.info(ret.read())
+        if node != head_ip:
+            command = "rsync -avz --password-file=/etc/rsyncd.passwd chenhai@" + node + \
+                      "::video /project/data/rsync_path/" + node
+            ret = os.popen(command)
+            logging.info(ret.read())
 
 
 def merge_files(nodes):
+    global head_ip
     for node in nodes:
-        src_path = "/project/data/rsync_path/" + node
-        if os.path.exists(src_path):
-            vid_level_cmd = "cp -rf " + src_path + "/" + "representations/video_level/*.npy " + \
-                            "/project/data/representations/video_level/"
-            os.system(vid_level_cmd)
-            vid_sig_cmd = "cp -rf " + src_path + "/" + "representations/video_signatures/*.npy " + \
-                          "/project/data/representations/video_signatures/"
-            os.system(vid_sig_cmd)
-            ## video_level
-            src_vid_lev_lmdb = src_path + "/" + "representations/video_level/store.lmdb"
-            dst_vid_lev_lmdb = "/project/data/representations/video_level/store.lmdb"
-            ret_vid_lev_lmdb = "/project/data/representations/video_level/ret.lmdb"
-            merge_lmdb(src_vid_lev_lmdb, dst_vid_lev_lmdb, ret_vid_lev_lmdb)
-            os.system("rm -rf /project/data/representations/video_level/store.lmdb")
-            os.system("mv /project/data/representations/video_level/ret.lmdb "
-                      "/project/data/representations/video_level/store.lmdb")
-            ## video_signatures
-            src_vid_sig_lmdb = src_path + "/" + "representations/video_signatures/store.lmdb"
-            dst_vid_sig_lmdb = "/project/data/representations/video_signatures/store.lmdb"
-            ret_vid_sig_lmdb = "/project/data/representations/video_signatures/ret.lmdb"
-            merge_lmdb(src_vid_sig_lmdb, dst_vid_sig_lmdb, ret_vid_sig_lmdb)
-            os.system("rm -rf /project/data/representations/video_signatures/store.lmdb")
-            os.system("mv /project/data/representations/video_signatures/ret.lmdb "
-                      "/project/data/representations/video_signatures/store.lmdb")
+        if node != head_ip:
+            src_path = "/project/data/rsync_path/" + node
+            if os.path.exists(src_path):
+                vid_level_cmd = "cp -rf " + src_path + "/" + "representations/video_level/*.npy " + \
+                                "/project/data/representations/video_level/"
+                os.system(vid_level_cmd)
+                vid_sig_cmd = "cp -rf " + src_path + "/" + "representations/video_signatures/*.npy " + \
+                              "/project/data/representations/video_signatures/"
+                os.system(vid_sig_cmd)
+                ## video_level
+                src_vid_lev_lmdb = src_path + "/" + "representations/video_level/store.lmdb"
+                dst_vid_lev_lmdb = "/project/data/representations/video_level/store.lmdb"
+                ret_vid_lev_lmdb = "/project/data/representations/video_level/ret.lmdb"
+                merge_lmdb(src_vid_lev_lmdb, dst_vid_lev_lmdb, ret_vid_lev_lmdb)
+                os.system("rm -rf /project/data/representations/video_level/store.lmdb")
+                os.system("mv /project/data/representations/video_level/ret.lmdb "
+                          "/project/data/representations/video_level/store.lmdb")
+                ## video_signatures
+                src_vid_sig_lmdb = src_path + "/" + "representations/video_signatures/store.lmdb"
+                dst_vid_sig_lmdb = "/project/data/representations/video_signatures/store.lmdb"
+                ret_vid_sig_lmdb = "/project/data/representations/video_signatures/ret.lmdb"
+                merge_lmdb(src_vid_sig_lmdb, dst_vid_sig_lmdb, ret_vid_sig_lmdb)
+                os.system("rm -rf /project/data/representations/video_signatures/store.lmdb")
+                os.system("mv /project/data/representations/video_signatures/ret.lmdb "
+                          "/project/data/representations/video_signatures/store.lmdb")
+                # del after work done!
+                os.system("rm -rf " + src_path)
 
 
 def merge_lmdb(lmdb1, lmdb2, result_lmdb):
@@ -257,8 +270,7 @@ def Convert(config):
 
 @ray.remote(max_calls=1)
 def extract_features(config, link):
-    if download_video(link) is None:
-        return
+    download_video(link)
     reps = ReprStorage(os.path.join(config.repr.directory))
     reprkey = reprkey_resolver(config)
 
@@ -282,7 +294,6 @@ def extract_features(config, link):
         remove_file(VIDEOS_LIST)
         remove_file("/project/data/test_dataset/" + file_name)
         os.system("rm -rf /project/core.*")
-        # Convert(config)
 
 
 def is_video_exist_in_db(config, file):
@@ -306,14 +317,15 @@ def f():
     return ray.services.get_node_ip_address()
 
 
-def get_video_duration(filename):
-    cap = cv2.VideoCapture(filename)
+def get_video_duration(link):
+    cap = cv2.VideoCapture(link)
+    duration = -1
     if cap.isOpened():
         rate = cap.get(5)
         frame_num = cap.get(7)
         duration = frame_num / rate
-        return duration
-    return -1
+        cap.release()
+    return duration
 
 
 def ip_into_int(ip):
@@ -338,6 +350,7 @@ def record_video_list(url, list):
     need_record = True
     with open(file_path, 'a+') as file:
         for line in file.readlines():
+            print(line)
             if line == url:
                 need_record = False
         if need_record:
@@ -348,24 +361,62 @@ def record_video_list(url, list):
                 file.write('\r\n')
 
 
+# 20s
+def check_duration_and_download(link, file_path):
+    is_video_rewrite = False
+    cap = cv2.VideoCapture(link)
+
+    if cap.isOpened():
+        rate = cap.get(5)
+        frame_num = cap.get(7)
+        duration = frame_num / rate
+        print("file:" + link + ", duration:" + str(duration))
+        if duration >= 30:
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            end_time = 20
+            cap.set(cv2.CAP_PROP_POS_MSEC, 0)
+            out = cv2.VideoWriter(file_path, fourcc, cap.get(5), (int(cap.get(3)), int(cap.get(4))))
+            while cap.isOpened():
+                ret, frame = cap.read()
+                if ret:
+                    is_video_rewrite = True
+                    if cap.get(cv2.CAP_PROP_POS_MSEC) >= end_time*1000:
+                        break
+                    out.write(frame)
+                    # cv2.imshow('frame', frame)
+                    if cv2.waitKey(1) & 0xFF == ord('q'):
+                        break
+                else:
+                    break
+            out.release()
+    else:
+        return is_video_rewrite
+
+    cap.release()
+    return is_video_rewrite
+
+
 def download_video(link):
     file_name = link.split('/')[-1]
-    r = requests.get(link, stream=True)
-
     file_path = "/project/data/test_dataset/"
     if not os.path.exists(file_path):
         os.makedirs(file_path)
 
     if os.path.exists(file_path + file_name):
         return None
-    # download started
-    with open(file_path + file_name, 'wb') as file:
-        for chunk in r.iter_content(chunk_size=1024 * 1024):
-            if chunk:
-                file.write(chunk)
-        if os.path.exists(file_path + file_name):
-            logging.info("%s downloaded!\n" % file_name)
-            return link
+    # duration = get_video_duration(link)
+    if not check_duration_and_download(link, file_path + file_name):
+        r = requests.get(link, stream=True)
+        # download started
+        with open(file_path + file_name, 'wb') as file:
+            for chunk in r.iter_content(chunk_size=1024 * 1024):
+                if chunk:
+                    file.write(chunk)
+            if os.path.exists(file_path + file_name):
+                logging.info("%s downloaded!\n" % file_name)
+                return link
+    else:
+        return link
     return None
 
 
