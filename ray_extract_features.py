@@ -121,7 +121,7 @@ def main(config, list_of_files, frame_sampling, save_frames, start_time, end_tim
                                 break
                         except Exception as e:
                             print(e)
-                        time.sleep(0.1)
+                        time.sleep(0.2)
 
             for nodeIP in nodes:
                 node_id = f"node:{nodeIP}"
@@ -135,7 +135,7 @@ def main(config, list_of_files, frame_sampling, save_frames, start_time, end_tim
     while len(result_ids) and count < 100:
         done_id, result_ids = ray.wait(result_ids)
         count += 1
-        time.sleep(5)
+        time.sleep(2)
 
     collect_files(nodes)
     merge_files(nodes)
@@ -371,9 +371,9 @@ def check_duration_and_download(link, file_path):
         frame_num = cap.get(7)
         duration = frame_num / rate
         print("file:" + link + ", duration:" + str(duration))
-        if duration >= 30:
+        if duration > 15:
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            end_time = 20
+            end_time = 15
             cap.set(cv2.CAP_PROP_POS_MSEC, 0)
             out = cv2.VideoWriter(file_path, fourcc, cap.get(5), (int(cap.get(3)), int(cap.get(4))))
             while cap.isOpened():
