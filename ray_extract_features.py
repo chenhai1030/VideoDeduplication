@@ -126,8 +126,8 @@ def main(config, list_of_files, frame_sampling, save_frames, start_time, end_tim
             for nodeIP in nodes:
                 node_id = f"node:{nodeIP}"
                 Convert.options(resources={node_id: 0.01})
-                Convert.remote(config)
-                # ray.get(Convert.remote(config))
+                # Convert.remote(config)
+                ray.get(Convert.remote(config))
 
     logging.info("task dis done!")
 
@@ -249,6 +249,9 @@ def Convert(config):
     if len(vid_level_iterator) > 0:
         signatures = sm.predict(vid_level_iterator)  # Get {ReprKey => signature} dict
 
+        os.system("rm -rf /project/data/representations/video_level/*.npy")
+        os.system("rm -rf /project/data/representations/frame_level/*.npy")
+
         logging.info('Saving Video Signatures on :{}'.format(reps.signature.directory))
         if config.database.use:
             # Convert dict to list of (path, sha256, signature) tuples
@@ -266,6 +269,7 @@ def Convert(config):
 
         if config.save_files:
             bulk_write(reps.signature, signatures)
+
 
 
 @ray.remote(max_calls=1)
@@ -361,7 +365,7 @@ def record_video_list(url, list):
                 file.write('\r\n')
 
 
-# 20s
+# 10s
 def check_duration_and_download(link, file_path):
     is_video_rewrite = False
     cap = cv2.VideoCapture(link)
@@ -371,9 +375,9 @@ def check_duration_and_download(link, file_path):
         frame_num = cap.get(7)
         duration = frame_num / rate
         print("file:" + link + ", duration:" + str(duration))
-        if duration > 15:
+        if duration > 10:
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            end_time = 15
+            end_time = 10
             cap.set(cv2.CAP_PROP_POS_MSEC, 0)
             out = cv2.VideoWriter(file_path, fourcc, cap.get(5), (int(cap.get(3)), int(cap.get(4))))
             while cap.isOpened():
@@ -383,7 +387,6 @@ def check_duration_and_download(link, file_path):
                     if cap.get(cv2.CAP_PROP_POS_MSEC) >= end_time*1000:
                         break
                     out.write(frame)
-                    # cv2.imshow('frame', frame)
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
                 else:

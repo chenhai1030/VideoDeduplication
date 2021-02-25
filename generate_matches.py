@@ -34,15 +34,19 @@ def main(config):
 
     # Get mapping (path,hash) => sig.
     print('Extracting Video Signatures')
-    sm = SimilarityModel()
-    vid_level_iterator = bulk_read(reps.video_level)
+    signature_iterator = bulk_read(reps.signature)
 
-    assert len(vid_level_iterator) > 0, 'No video_level features were found'
+    if len(signature_iterator) == 0:
 
-    signatures_dict = sm.predict(bulk_read(reps.video_level))
+        vid_level_iterator = bulk_read(reps.video_level)
+        assert len(vid_level_iterator) > 0, "No video_level features were found"
+        sm = SimilarityModel()
+        signatures_dict = sm.predict(bulk_read(reps.video_level))
+        # Unpack paths, hashes and signatures as separate np.arrays
+        repr_keys, video_signatures = zip(*signatures_dict.items())
 
-    # Unpack paths, hashes and signatures as separate np.arrays
-    repr_keys, video_signatures = zip(*signatures_dict.items())
+    else:
+        repr_keys, video_signatures = zip(*signature_iterator.items())
     paths = np.array([key.path for key in repr_keys])
     hashes = np.array([key.hash for key in repr_keys])
     video_signatures = np.array(video_signatures)
