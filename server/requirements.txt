@@ -4,3 +4,4 @@ Flask-SQLAlchemy
 PyYAML
 psycopg2
 fire
+requests
