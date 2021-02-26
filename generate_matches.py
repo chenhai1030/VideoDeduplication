@@ -99,27 +99,27 @@ def main(config):
 
     match_df.to_csv(REPORT_PATH)
 
-    if config.proc.detect_scenes:
-
-        frame_features_dict = bulk_read(reps.frame_level, select=None)
-        assert len(frame_features_dict) > 0, 'No Frame Level features were found.'
-        scenes = extract_scenes(frame_features_dict)
-        scene_metadata = pd.DataFrame(asdict(scenes))
-
-        if config.database.use:
-            # Connect to database
-            database = Database(uri=config.database.uri)
-            database.create_tables()
-
-            # Save scenes
-            result_storage = DBResultStorage(database)
-            result_storage.add_scenes(zip(scenes.video_filename, scenes.video_sha256, scenes.scene_duration_seconds))
-
-        if config.save_files:
-
-            SCENE_METADATA_OUTPUT_PATH = os.path.join(config.repr.directory, 'scene_metadata.csv')
-            scene_metadata.to_csv(SCENE_METADATA_OUTPUT_PATH)
-            print('Scene Metadata saved in:'.format(SCENE_METADATA_OUTPUT_PATH))
+#    if config.proc.detect_scenes:
+#
+#        frame_features_dict = bulk_read(reps.frame_level, select=None)
+#        assert len(frame_features_dict) > 0, 'No Frame Level features were found.'
+#        scenes = extract_scenes(frame_features_dict)
+#        scene_metadata = pd.DataFrame(asdict(scenes))
+#
+#        if config.database.use:
+#            # Connect to database
+#            database = Database(uri=config.database.uri)
+#            database.create_tables()
+#
+#            # Save scenes
+#            result_storage = DBResultStorage(database)
+#            result_storage.add_scenes(zip(scenes.video_filename, scenes.video_sha256, scenes.scene_duration_seconds))
+#
+#        if config.save_files:
+#
+#            SCENE_METADATA_OUTPUT_PATH = os.path.join(config.repr.directory, 'scene_metadata.csv')
+#            scene_metadata.to_csv(SCENE_METADATA_OUTPUT_PATH)
+#            print('Scene Metadata saved in:'.format(SCENE_METADATA_OUTPUT_PATH))
 
 
     if config.proc.filter_dark_videos:

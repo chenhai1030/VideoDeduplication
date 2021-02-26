@@ -161,9 +161,9 @@ def merge_files(nodes):
         if node != head_ip:
             src_path = "/project/data/rsync_path/" + node
             if os.path.exists(src_path):
-                vid_level_cmd = "cp -rf " + src_path + "/" + "representations/video_level/*.npy " + \
-                                "/project/data/representations/video_level/"
-                os.system(vid_level_cmd)
+                # vid_level_cmd = "cp -rf " + src_path + "/" + "representations/video_level/*.npy " + \
+                #                 "/project/data/representations/video_level/"
+                # os.system(vid_level_cmd)
                 vid_sig_cmd = "cp -rf " + src_path + "/" + "representations/video_signatures/*.npy " + \
                               "/project/data/representations/video_signatures/"
                 os.system(vid_sig_cmd)
@@ -352,11 +352,12 @@ def remove_file(file_path):
 def record_video_list(url, list):
     file_path = "/project/data/record.txt"
     need_record = True
-    with open(file_path, 'a+') as file:
+    with open(file_path, 'r') as file:
         for line in file.readlines():
-            print(line)
-            if line == url:
+            if line.rstrip() == url:
                 need_record = False
+
+    with open(file_path, 'a+') as file:
         if need_record:
             file.write(url)
             file.write('\r\n')
@@ -365,7 +366,7 @@ def record_video_list(url, list):
                 file.write('\r\n')
 
 
-# 10s
+# 15s > 5s-15s video
 def check_duration_and_download(link, file_path):
     is_video_rewrite = False
     cap = cv2.VideoCapture(link)
@@ -375,10 +376,10 @@ def check_duration_and_download(link, file_path):
         frame_num = cap.get(7)
         duration = frame_num / rate
         print("file:" + link + ", duration:" + str(duration))
-        if duration > 10:
+        if duration > 15:
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            end_time = 10
-            cap.set(cv2.CAP_PROP_POS_MSEC, 0)
+            end_time = 15
+            cap.set(cv2.CAP_PROP_POS_MSEC, 5*1000)
             out = cv2.VideoWriter(file_path, fourcc, cap.get(5), (int(cap.get(3)), int(cap.get(4))))
             while cap.isOpened():
                 ret, frame = cap.read()
