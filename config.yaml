@@ -18,13 +18,13 @@ processing:
   filter_dark_videos: true
   filter_dark_videos_thr: 2
   min_video_duration_seconds: 3
-  detect_scenes: true
+  detect_scenes: false
   pretrained_model_local_path: null
   keep_fileoutput: true
 
 database:
   use: true
-  uri: postgres://postgres:admin@postgres:5432/videodeduplicationdb
+  uri: postgres://postgres:admin@172.17.12.189:5432/videodeduplicationdb
 
 templates:
   source_path: data/templates/test-group/CCSI Object Recognition External/
