@@ -98,7 +98,8 @@ def stop_worker(ipaddr):
     all_command = command + "'"+remote_command+"'"
     # print(all_command)
     os.system(all_command)
-    remote_kill_command = "docker exec -i videodeduplication_dedup-app_1 ps -aux |grep ray |awk '{print $2}'| xargs kill -9"
+    remote_kill_command = "docker exec -i videodeduplication_dedup-app_1 ps -aux |grep ray |awk '{print $2}'| " \
+                          "docker exec -i videodeduplication_dedup-app_1 xargs kill -9"
     all_command_kill = command  + remote_kill_command
     ret = os.popen(all_command_kill)
     return ret.read()
@@ -131,11 +132,27 @@ def launch_task(startTime, endTime):
 @api.route('/task_stop/')
 def stop_task():
     command = "ssh chenhai@" + get_ray_head_ip() + " "
-    remote_kill_command = "docker exec -i videodeduplication_dedup-app_1 ps -aux |grep ray_extract_features.py |xargs kill -9"
+    remote_kill_command = "docker exec -i videodeduplication_dedup-app_1 ps -aux |grep ray_extract_features.py |" \
+                          "docker exec -i videodeduplication_dedup-app_1 xargs kill -9"
     all_command = command + remote_kill_command + " &"
     print(all_command)
     ret = os.popen(all_command)
     return ret.read()
+
+
+# @api.route('/get_state/', methods=['GET'])
+# def get_state():
+#     # Fetch state from database
+#     query = database.session.query(RayState)
+#     raystate = query.get()
+#     data = Transform.raystate_dict(raystate)
+#     return jsonify(data)
+#
+#
+# @api.route('/set_state/<string:ray_state>')
+# def set_state(ray_state):
+#     state_list = json.loads()
+#     return jsonify(state_list)
 
 
 @api.route('/files/', methods=['GET'])
