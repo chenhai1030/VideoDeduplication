@@ -45,8 +45,8 @@ class ListFilesRequest:
     preload: list = field(default_factory=list)
     sort: str = None
     match_filter: str = FileMatchFilter.ALL
-    related_distance: float = 0.4
-    duplicate_distance: float = 0.1
+    related_distance: float = 0.7
+    duplicate_distance: float = 0.3
 
 
 @dataclass

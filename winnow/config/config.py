@@ -8,7 +8,7 @@ from dataclasses import dataclass, asdict, field
 class SourcesConfig:
     """Configuration of source file location."""
     root: str = None  # Root folder of the video files
-    extensions: List[str] = ("mp4", "ogv", "webm", "avi")
+    extensions: List[str] = ("mp4", "ogv", "webm", "avi", "flv")
 
 
 @dataclass
@@ -32,7 +32,7 @@ class ProcessingConfig:
     filter_dark_videos: bool = True
     filter_dark_videos_thr: int = 2
     min_video_duration_seconds: int = 3
-    detect_scenes: bool = True
+    detect_scenes: bool = False 
     pretrained_model_local_path: str = None
     frame_sampling: int = 1
     save_frames: bool = True
