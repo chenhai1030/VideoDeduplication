@@ -13,7 +13,7 @@ class DatabaseConfig:
         self.env_password = os.environ.get("DATABASE_PASS", "admin")
         self.secret = os.environ.get("DATABASE_SECRET")
         self.dialect = os.environ.get("DATABASE_DIALECT", "postgres")
-        self.override_uri = os.environ.get("DATABASE_URI")
+        self.override_uri = "postgres://postgres:admin@172.17.12.189:5432/videodeduplicationdb" #os.environ.get("DATABASE_URI")
 
     @cached_property
     def password(self):
@@ -51,7 +51,7 @@ class Config:
         self.port = int(os.environ.get("SERVER_PORT", 5000))
         self.static_folder = os.environ.get("STATIC_FOLDER", "static")
         self.video_folder = os.environ.get("VIDEO_FOLDER", "/project/data")
-        self.duplicate_distance = float(os.environ.get("DUPLICATE_DISTANCE", 0.1))
-        self.related_distance = float(os.environ.get("RELATED_DISTANCE", 0.40))
+        self.duplicate_distance = float(os.environ.get("DUPLICATE_DISTANCE", 0.25))
+        self.related_distance = float(os.environ.get("RELATED_DISTANCE", 0.70))
         self.thumbnail_cache_folder = os.environ.get("THUMBNAIL_CACHE_FOLDER", "./thumbnails_cache")
         self.thumbnail_cache_cap = int(os.environ.get("THUMBNAIL_CACHE_CAP", 1000))

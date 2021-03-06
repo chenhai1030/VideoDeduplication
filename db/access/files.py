@@ -46,7 +46,7 @@ class ListFilesRequest:
     sort: str = None
     match_filter: str = FileMatchFilter.ALL
     related_distance: float = 0.7
-    duplicate_distance: float = 0.3
+    duplicate_distance: float = 0.25
 
 
 @dataclass
