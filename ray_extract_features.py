@@ -41,6 +41,8 @@ logger.addHandler(file_handler)
 ray.init(address="0.0.0.0:6379")
 head_ip = "172.17.12.189"
 
+LOCAL_TEST = False
+
 @click.command()
 @click.option(
     '--config', '-cp',
@@ -71,8 +73,7 @@ head_ip = "172.17.12.189"
 )
 def main(config, list_of_files, frame_sampling, save_frames, start_time, end_time):
     Linda_interface = "http://172.17.26.95:8086/status/linda_orange_material_info?"
-    nodes = set(ray.get([f.remote() for _ in range(1000)]))
-    nodes |= set(ray.get([f.remote() for _ in range(1000)]))
+    nodes = get_ray_nodes()
     logging.info(nodes)
 
     config = resolve_config(
@@ -80,11 +81,65 @@ def main(config, list_of_files, frame_sampling, save_frames, start_time, end_tim
         frame_sampling=frame_sampling,
         save_frames=save_frames)
 
+    if LOCAL_TEST:
+        reps = ReprStorage(os.path.join(config.repr.directory))
+        reprkey = reprkey_resolver(config)
+        videos = scan_videos(config.sources.root, '**', extensions=config.sources.extensions)
+
+        print('Number of files found: {}'.format(len(videos)))
+
+        remaining_videos_path = ["/project/"+path for path in videos if not reps.frame_level.exists(reprkey(path))]
+
+        print('There are {} videos left'.format(len(remaining_videos_path)))
+
+        VIDEOS_LIST = create_video_list(remaining_videos_path, config.proc.video_list_filename)
+        video_list = []
+        with open(VIDEOS_LIST, 'r', encoding="utf-8") as f:
+            reader = csv.reader(f)
+            for row in reader:
+                video_list.append(row)
+
+        result_ids = []
+        for idx, value in enumerate(video_list):
+            link = value[0]
+            is_in_db = is_video_exist_in_db(config, link.split('/')[-1])
+            if not is_in_db:
+                while True:
+                    try:
+                        if int(ray.available_resources().get("CPU", 0)) > 0:
+                            task_id = extract_features.remote(config, link)
+                            result_ids.append(task_id)
+                            break
+                    except Exception as e:
+                        print(e)
+                    time.sleep(1)
+
+        count = 0
+        while len(result_ids) and count < 2000:
+            done_id, result_ids = ray.wait(result_ids)
+            count += 1
+            time.sleep(2)
+
+        for nodeIP in get_ray_nodes():
+            node_id = f"node:{nodeIP}"
+            Convert.options(resources={node_id: 1.0})
+            # Convert.remote(config)
+            ray.get(Convert.remote(config))
+
+        os.popen('python /project/generate_matches.py')
+        while True:time.sleep(10)
+        return
+
     startTime = start_time
     result_ids = []
     prepare_to_end = False
+    task_start_time = int(time.time())
     while end_time - startTime > 0:
-        if startTime >= (time.time()):
+        cur_time = int(time.time())
+        if (cur_time - task_start_time > 0) and (cur_time - task_start_time)%7200 == 0:
+            logging.info("generate matches by TIME!")
+            gen_matchs(nodes)
+        if startTime >= cur_time:
             startTime = start_time
             time.sleep(5)
         linda_request_url = Linda_interface + "starttime=" + str(startTime) + "&&" + "endtime=" + str((startTime+600))
@@ -97,22 +152,16 @@ def main(config, list_of_files, frame_sampling, save_frames, start_time, end_tim
         if rsp['result'] == "success" and range(len(rsp['data']) > 0):
             linda_list = [rsp['data'][i]['file_path'] for i in range(len(rsp['data']))]
             linda_list_temp = linda_list.copy()
-            # create_video_list(linda_list, list_of_files)
+
             record_video_list(linda_request_url, linda_list_temp)
 
-            # with open(list_of_files, 'r') as file:
-            #     reader = csv.reader(file)
             for idx, value in enumerate(linda_list_temp):
                 link = value
                 is_in_db = is_video_exist_in_db(config, link.split('/')[-1])
                 if not is_in_db:
-                    # duration = get_video_duration(link)
-                    # if duration < 240:
                     while True:
                         try:
-                            # logging.info(ray.available_resources())
-                            resources = list(ray.available_resources())
-                            if 'CPU' in resources:
+                            if int(ray.available_resources().get("CPU", 0)) > 0:
                                 if prepare_to_end:
                                     task_id = extract_features.remote(config, link)
                                     result_ids.append(task_id)
@@ -121,13 +170,14 @@ def main(config, list_of_files, frame_sampling, save_frames, start_time, end_tim
                                 break
                         except Exception as e:
                             print(e)
-                        time.sleep(0.2)
+                        time.sleep(1)
 
-            for nodeIP in nodes:
+            for nodeIP in get_ray_nodes():
                 node_id = f"node:{nodeIP}"
-                Convert.options(resources={node_id: 0.01})
+                Convert.options(resources={node_id: 1.0})
                 # Convert.remote(config)
                 ray.get(Convert.remote(config))
+
 
     logging.info("task dis done!")
 
@@ -137,9 +187,7 @@ def main(config, list_of_files, frame_sampling, save_frames, start_time, end_tim
         count += 1
         time.sleep(2)
 
-    collect_files(nodes)
-    merge_files(nodes)
-    os.popen('python /project/generate_matches.py')
+    gen_matchs(nodes)
     logging.info("All task Done!!")
 
 
@@ -234,7 +282,7 @@ def merge_lmdb(lmdb1, lmdb2, result_lmdb):
     logging.info('Merge success!')
 
 
-@ray.remote(num_cpus=1, max_calls=1)
+@ray.remote(max_calls=1)
 def Convert(config):
     reps = ReprStorage(os.path.join(config.repr.directory))
     logging.info('Converting Frame by Frame representations to Video Representations')
@@ -245,12 +293,11 @@ def Convert(config):
     sm = SimilarityModel()
     vid_level_iterator = bulk_read(reps.video_level)
 
-    # assert len(vid_level_iterator) > 0, 'No Signatures left to be processed'
     if len(vid_level_iterator) > 0:
         signatures = sm.predict(vid_level_iterator)  # Get {ReprKey => signature} dict
 
-        os.system("rm -rf /project/data/representations/video_level/*.npy")
-        os.system("rm -rf /project/data/representations/frame_level/*.npy")
+        # os.system("rm -rf /project/data/representations/video_level/*.npy")
+        # os.system("rm -rf /project/data/representations/frame_level/*.npy")
 
         logging.info('Saving Video Signatures on :{}'.format(reps.signature.directory))
         if config.database.use:
@@ -272,7 +319,7 @@ def Convert(config):
 
 
 
-@ray.remote(max_calls=1)
+@ray.remote(max_calls=1, num_cpus=2)
 def extract_features(config, link):
     download_video(link)
     reps = ReprStorage(os.path.join(config.repr.directory))
@@ -282,23 +329,34 @@ def extract_features(config, link):
     if not reps.frame_level.exists(reprkey(os.path.join(config.sources.root, file_name))):
         #VIDEOS_LIST = create_video_list([os.path.join(config.sources.root, file_name)],
         #                                str(os.getpid()) + "_" + config.proc.video_list_filename)
+
         VIDEOS_LIST = create_video_list([link],
                                         str(os.getpid()) + "_" + config.proc.video_list_filename)
         # logging.info('Processed video List saved on :{}'.format(VIDEOS_LIST))
         # Instantiates the extractor
         model_path = default_model_path(config.proc.pretrained_model_local_path)
-
         extractor = IntermediateCnnExtractor(video_src=VIDEOS_LIST, reprs=reps, reprkey=reprkey,
                                              frame_sampling=config.proc.frame_sampling,
                                              save_frames=config.proc.save_frames,
                                              model=(load_featurizer(model_path)))
         # Starts Extracting Frame Level Features
-        extractor.start(batch_size=8, cores=4)
+        extractor.start(batch_size=16, cores=4)
 
         remove_file(VIDEOS_LIST)
         remove_file("/project/data/test_dataset/" + file_name)
         os.system("rm -rf /project/core.*")
 
+
+@ray.remote(max_calls=1, num_cpus=4)
+def collect_nodes_files(nodes):
+    collect_files(nodes)
+    merge_files(nodes)
+
+
+def gen_matchs(nodes):
+    collect_nodes_files.options(resources={f"node:{head_ip}": 4.0})
+    collect_nodes_files.remote(nodes)
+    os.popen('python /project/generate_matches.py')
 
 def is_video_exist_in_db(config, file):
     if config.database.use:
@@ -315,10 +373,19 @@ def is_video_exist_in_db(config, file):
     return True
 
 
-@ray.remote
-def f():
-    time.sleep(0.01)
-    return ray.services.get_node_ip_address()
+def num_alive_nodes():
+    n = 0
+    for node in ray.nodes():
+        if node["Alive"]:
+            n += 1
+    return n
+
+
+def get_ray_nodes():
+    node_list = []
+    for node in ray.nodes():
+        node_list.append(node['NodeManagerAddress'])
+    return node_list
 
 
 def get_video_duration(link):
@@ -332,18 +399,6 @@ def get_video_duration(link):
     return duration
 
 
-def ip_into_int(ip):
-    return reduce(lambda x, y: (x << 8) + y, map(int, ip.split('.')))
-
-
-def is_internal_ip(ip):
-    ip = ip_into_int(ip)
-    net_a = ip_into_int('10.255.255.255') >> 24
-    net_b = ip_into_int('172.31.255.255') >> 20
-    net_c = ip_into_int('192.168.255.255') >> 16
-    return ip >> 24 == net_a or ip >> 20 == net_b or ip >> 16 == net_c
-
-
 def remove_file(file_path):
     if os.path.exists(file_path):
         os.remove(file_path)
@@ -351,6 +406,9 @@ def remove_file(file_path):
 
 def record_video_list(url, list):
     file_path = "/project/data/record.txt"
+    if not os.path.exists(file_path):
+        record_file = open(file_path, 'w')
+        record_file.close()
     need_record = True
     with open(file_path, 'r') as file:
         for line in file.readlines():
@@ -366,7 +424,46 @@ def record_video_list(url, list):
                 file.write('\r\n')
 
 
-# 15s > 5s-15s video
+def check_duration_and_cut(file_path):
+    cap = cv2.VideoCapture(file_path)
+    if cap.isOpened():
+        rate = cap.get(5)
+        frame_num = cap.get(7)
+        duration = frame_num / rate
+        w = int(cap.get(3))
+        h = int(cap.get(4))
+        print("file:" + file_path + ", duration:" + str(duration))
+        if int(duration) >= 20:
+            file_tmp =  "/project/data/test_dataset/tmp.mp4"
+
+            end_time = 20
+            cap.set(cv2.CAP_PROP_POS_MSEC, 0)
+            out = cv2.VideoWriter(file_tmp, cv2.VideoWriter_fourcc(*'mp4v'), rate, (w, h))
+            while cap.isOpened():
+                ret, frame = cap.read()
+                if ret:
+                    if cap.get(cv2.CAP_PROP_POS_MSEC) >= end_time*1000:
+                        break
+                    out.write(frame)
+                    if cv2.waitKey(1) & 0xFF == ord('q'):
+                        break
+                else:
+                    break
+            out.release()
+            if os.path.exists(file_tmp):
+                remove_file(file_path)
+                cmd = "mv " + file_tmp + " " + file_path
+                os.popen(cmd)
+
+                count = 0
+                while not os.path.exists(file_path) and count < 10:
+                    time.sleep(0.3)
+                    count += 1
+                    print("not exist!")
+
+
+
+# 20s > 0s-20s video
 def check_duration_and_download(link, file_path):
     is_video_rewrite = False
     cap = cv2.VideoCapture(link)
@@ -376,16 +473,15 @@ def check_duration_and_download(link, file_path):
         frame_num = cap.get(7)
         duration = frame_num / rate
         print("file:" + link + ", duration:" + str(duration))
-        if duration > 15:
-            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            end_time = 15
-            cap.set(cv2.CAP_PROP_POS_MSEC, 5*1000)
-            out = cv2.VideoWriter(file_path, fourcc, cap.get(5), (int(cap.get(3)), int(cap.get(4))))
+        if duration > 20:
+            end_time = 20
+            cap.set(cv2.CAP_PROP_POS_MSEC, 0)
+            out = cv2.VideoWriter(file_path, cv2.VideoWriter_fourcc(*'mp4v'), rate, (int(cap.get(3)), int(cap.get(4))))
             while cap.isOpened():
                 ret, frame = cap.read()
                 if ret:
-                    is_video_rewrite = True
                     if cap.get(cv2.CAP_PROP_POS_MSEC) >= end_time*1000:
+                        is_video_rewrite = True
                         break
                     out.write(frame)
                     if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -407,6 +503,8 @@ def download_video(link):
         os.makedirs(file_path)
 
     if os.path.exists(file_path + file_name):
+        if LOCAL_TEST:
+            check_duration_and_cut(file_path + file_name)
         return None
     # duration = get_video_duration(link)
     if not check_duration_and_download(link, file_path + file_name):
