@@ -21,7 +21,8 @@ const useStyles = makeStyles(() => ({
 function useMessages() {
   const intl = useIntl();
   return {
-    search: intl.formatMessage({ id: "actions.searchFingerprints" }),
+    // search: intl.formatMessage({ id: "actions.searchFingerprints" }),
+    search: intl.formatMessage({ id: "actions.searchFileName" }),
   };
 }
 

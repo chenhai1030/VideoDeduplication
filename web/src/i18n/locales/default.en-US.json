@@ -45,7 +45,7 @@
     "actions.addMedia": "Add Media",
     "actions.addNode": "Add Node",
     "actions.CleanNodes": "Clean Nodes",
-    "actions.RemoveNode": "Remove Node",
+    "actions.RemoveNode": "Remove",
     "actions.Launch": "Launch",
     "actions.useListView": "List View",
     "actions.useGridView": "Grid View",
