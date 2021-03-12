@@ -120,6 +120,15 @@ class LMDBReprStorage:
                 if metadata is not None:
                     yield ReprKey(path=original_path, hash=metadata.hash, tag=metadata.tag, url=metadata.url)
 
+    def list_lmdb(self):
+        """Iterate over all storage keys."""
+        with self._metadata_storage.begin(write=False) as txn:
+            for (key, value) in txn.cursor():
+                # for repr_file_path in glob(path_pattern, recursive=True):
+                original_path = key[0].decode('utf-8')
+                metadata = self._read_metadata(original_path, txn)
+                if metadata is not None:
+                    yield ReprKey(path=original_path, hash=metadata.hash, tag=metadata.tag, url=metadata.url)
     # Private methods
 
     def _map(self, path):

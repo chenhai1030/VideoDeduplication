@@ -96,7 +96,7 @@ def main(config, list_of_files, frame_sampling, save_frames):
 
     if config.database.use:
         # Convert dict to list of (path, sha256, signature) tuples
-        entries = [(key.path, key.hash, sig) for key, sig in signatures.items()]
+        entries = [(key.path, key.hash, key.url, sig) for key, sig in signatures.items()]
 
         # Connect to database
         database = Database(uri=config.database.uri)
@@ -108,6 +108,7 @@ def main(config, list_of_files, frame_sampling, save_frames):
 
     if config.save_files:
         bulk_write(reps.signature, signatures)
+
 
 
 if __name__ == '__main__':
