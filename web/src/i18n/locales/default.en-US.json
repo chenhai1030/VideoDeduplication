@@ -51,6 +51,7 @@
     "actions.useGridView": "Grid View",
     "actions.useGraphView": "Graph View",
     "actions.searchFingerprints": "Search Fingerprints",
+    "actions.searchFileName": "Search File Name",
     "actions.searchMatches": "Search Matches",
     "actions.nodeFingerprints": "Node IP",
     "actions.compare": "Compare",
