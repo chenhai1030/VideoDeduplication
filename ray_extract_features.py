@@ -6,6 +6,7 @@ import ray
 from ray.services import get_node_ip_address
 from functools import reduce
 import queue, threading
+import struct
 
 import logging
 import sys
@@ -51,31 +52,6 @@ head_ip = "172.17.12.189"
 
 LOCAL_TEST = False
 
-
-def bulk_read_lmdb(store):
-    """Read representations for the given storage keys.
-
-    If select is None, all the entries from the provided representation store are loaded.
-
-    Args:
-        store: Representation store for a single representation type (e.g. LMBDBReprStorage)
-
-    Returns:
-        Dictionary mapping storage keys to the loaded representation value.
-    """
-    keys = store.list_lmdb()
-
-    loaded_mapping = dict()
-
-    for key in keys:
-
-        try:
-            loaded_mapping[key] = store.read(key)
-        except Exception as e:
-            logger.error(f'Error processing file:{key}')
-            logger.error(e)
-
-    return loaded_mapping
 
 @click.command()
 @click.option(
@@ -126,7 +102,6 @@ def main(config, list_of_files, frame_sampling, save_frames, start_time, end_tim
     task_start_time = int(time.time())
     time_count = 1
     while end_time - startTime > 0:
-        need_convert = False
         cur_time = int(time.time())
         if startTime >= cur_time:
             startTime = start_time
@@ -140,6 +115,7 @@ def main(config, list_of_files, frame_sampling, save_frames, start_time, end_tim
         r = requests.get(linda_request_url)
         rsp = json.loads(r.text)
         if rsp['result'] == "success" and range(len(rsp['data']) > 0):
+            need_convert = False
             linda_list = [rsp['data'][i]['file_path'] for i in range(len(rsp['data']))]
             linda_list_temp = linda_list.copy()
 
@@ -152,130 +128,57 @@ def main(config, list_of_files, frame_sampling, save_frames, start_time, end_tim
                     need_convert = True
                     while True:
                         try:
-                            if int(ray.available_resources().get("CPU", 0)) > 0:
+                            if int(ray.available_resources().get("CPU", 0)) > 1:
                                 if prepare_to_end:
                                     task_id = extract_features.remote(config, link)
                                     result_ids.append(task_id)
                                 else:
                                     extract_features.remote(config, link)
+
                                 break
                         except Exception as e:
                             print(e)
-                        time.sleep(1)
+                        time.sleep(2)
 
             if need_convert:
-                for nodeIP in get_ray_nodes():
-                    node_id = f"node:{nodeIP}"
-                    Convert.options(resources={node_id: 1.0})
-                    # Convert.remote(config)
-                    ray.get(Convert.remote(config))
+                check_convert(config)
 
             cur_time = int(time.time())
             if (cur_time - task_start_time > 0) and \
                     (cur_time - task_start_time) / 3600 > time_count:
                 time_count += 1
                 print("Num: " + str(time_count) + " generate matches by TIME!")
-                ray.get(gen_matchs.remote(nodes))
                 find_matchs(config)
                 print("Num: " + str(time_count) + " generate matches by TIME! Done!")
-
 
     print("task dis done!")
 
     count = 0
     while len(result_ids) and count < 100:
+        print("result_ids:" + str(len(result_ids)) )
         done_id, result_ids = ray.wait(result_ids)
         count += 1
         time.sleep(2)
 
-    ray.get(gen_matchs.remote(nodes))
-    os.popen('python /project/generate_matches.py')
+    if need_convert:
+        check_convert(config)
+
+    # ray.get(gen_matchs.remote(nodes))
+    find_matchs(config)
     print("All task Done!!")
 
 
-def merge_files(nodes):
-    global head_ip
-    for node in nodes:
-        if node != head_ip:
-            src_path = "/project/data/rsync_path/" + node
-            if os.path.exists(src_path):
-                # vid_level_cmd = "cp -rf " + src_path + "/" + "representations/video_level/*.npy " + \
-                #                 "/project/data/representations/video_level/"
-                # os.system(vid_level_cmd)
-                vid_sig_cmd = "cp -rf " + src_path + "/" + "representations/video_signatures/*.npy " + \
-                              "/project/data/representations/video_signatures/"
-                os.system(vid_sig_cmd)
-                ## video_level
-                # src_vid_lev_lmdb = src_path + "/" + "representations/video_level/store.lmdb"
-                # dst_vid_lev_lmdb = "/project/data/representations/video_level/store.lmdb"
-                # ret_vid_lev_lmdb = "/project/data/representations/video_level/ret.lmdb"
-                # merge_lmdb(src_vid_lev_lmdb, dst_vid_lev_lmdb, ret_vid_lev_lmdb)
-                # os.system("rm -rf /project/data/representations/video_level/store.lmdb")
-                # os.system("mv /project/data/representations/video_level/ret.lmdb "
-                #           "/project/data/representations/video_level/store.lmdb")
-                ## video_signatures
-                src_vid_sig_lmdb = src_path + "/" + "representations/video_signatures/store.lmdb"
-                dst_vid_sig_lmdb = "/project/data/representations/video_signatures/store.lmdb"
-                ret_vid_sig_lmdb = "/project/data/representations/video_signatures/ret.lmdb"
-                merge_lmdb(src_vid_sig_lmdb, dst_vid_sig_lmdb, ret_vid_sig_lmdb)
-                os.system("rm -rf /project/data/representations/video_signatures/store.lmdb")
-                os.system("mv /project/data/representations/video_signatures/ret.lmdb "
-                          "/project/data/representations/video_signatures/store.lmdb")
-                # del after work done!
-                os.system("rm -rf " + src_path)
-
-
-def merge_lmdb(lmdb1, lmdb2, result_lmdb):
-    print('Merge start!')
-    env_1 = lmdb.open(lmdb1)
-    env_2 = lmdb.open(lmdb2)
-
-    txn_1 = env_1.begin()
-    txn_2 = env_2.begin()
-
-    database_1 = txn_1.cursor()
-    database_2 = txn_2.cursor()
-
-    env_3 = lmdb.open(result_lmdb, map_size=int(1e12))
-    txn_3 = env_3.begin(write=True)
-
-    count = 0
-    for (key, value) in database_1:
-        txn_3.put(key, value)
-        count += 1
-        if count % 1000 == 0:
-            txn_3.commit()
-            count = 0
-            txn_3 = env_3.begin(write=True)
-
-    if count % 1000 != 0:
-        txn_3.commit()
-        count = 0
-        txn_3 = env_3.begin(write=True)
-
-    for (key, value) in database_2:
-        txn_3.put(key, value)
-        if count % 1000 == 0:
-            txn_3.commit()
-            count = 0
-            txn_3 = env_3.begin(write=True)
-
-    if count % 1000 != 0:
-        txn_3.commit()
-        count = 0
-        txn_3 = env_3.begin(write=True)
-
-    env_1.close()
-    env_2.close()
-    env_3.close()
-
-    print('Merge success!')
+def check_convert(config):
+    for nodeIP in get_ray_nodes():
+        node_id = f"node:{nodeIP}"
+        Convert.options(resources={node_id: 1.0})
+        ray.get(Convert.remote(config))
 
 
 @ray.remote(max_calls=1)
 def Convert(config):
     reps = ReprStorage(os.path.join(config.repr.directory))
-    logging.info('Extracting Signatures from Video representations')
+    print('Extracting Signatures from Video representations')
     sm = SimilarityModel()
     vid_level_iterator = bulk_read(reps.video_level)
 
@@ -293,14 +196,15 @@ def Convert(config):
             database = Database(uri=config.database.uri)
             database.create_tables()
 
-            # Save signatures
-            result_storage = DBResultStorage(database)
-            result_storage.add_signatures(entries)
+            try:
+                # Save signatures
+                result_storage = DBResultStorage(database)
+                result_storage.add_signatures(entries)
+            except Exception as e:
+                print(e)
 
         # if config.save_files:
         #     bulk_write(reps.signature, signatures)
-
-        # os.system("rm -rf /project/data/representations/video_level/*.npy")
 
 
 @ray.remote(max_calls=1, num_cpus=2)
@@ -342,16 +246,64 @@ def gen_matchs(nodes):
     collect_nodes_files(nodes)
 
 
+def db_test(config):
+    database = Database(uri=config.database.uri)
+    with database.session_scope() as session:
+        query = session.query(Files).options(joinedload(Files.signature))
+        files = query.filter().all()
+
+        paths = np.array([file.file_path for file in files])
+        hashes = np.array([file.sha256 for file in files])
+        # video_signatures = np.array([file.signature.signature for file in files])
+        for file in files:
+            if file.signature is not None:
+                if file.file_path == "v127550211.mp4":
+                    with open("test.txt", "wb+") as f:
+                        f.write(file.signature.signature)
+                        f.seek(0)
+                    # f = open('test.txt', 'rb+')
+                        str = f.read()
+                        len_s = len(str)
+                        data = struct.unpack(('%df' % (len_s / 4)), str)
+                        print(data)
+                    # f.close()
+            else:
+                print(file.file_path)
+            return
+
+
 def find_matchs(config):
-    reps = ReprStorage(config.repr.directory)
+    # reps = ReprStorage(config.repr.directory)
 
     # Get mapping (path,hash) => sig.
-    print('Extracting Video Signatures')
-    signature_iterator = bulk_read_lmdb(reps.signature)
-    repr_keys, video_signatures = zip(*signature_iterator.items())
-    paths = np.array([key.path for key in repr_keys])
-    hashes = np.array([key.hash for key in repr_keys])
-    video_signatures = np.array(video_signatures)
+    # print('Extracting Video Signatures')
+
+    # # signature_iterator = bulk_read_lmdb(reps.signature)
+    # signature_iterator = bulk_read(reps.signature)
+    # repr_keys, video_signatures = zip(*signature_iterator.items())
+    # paths = np.array([key.path for key in repr_keys])
+    # hashes = np.array([key.hash for key in repr_keys])
+    # video_signatures = np.array(video_signatures)
+
+    print('Reading Video Signatures')
+    database = Database(uri=config.database.uri)
+    with database.session_scope() as session:
+        query = session.query(Files).options(joinedload(Files.signature))
+        files = query.filter().all()
+        paths = np.array([file.file_path for file in files])
+        hashes = np.array([file.sha256 for file in files])
+        video_signatures = []
+        for file in files:
+            if file.signature is not None:
+                with open("/tmp/test.txt", "wb+") as f:
+                    f.write(file.signature.signature)
+                    f.seek(0)
+                    # f = open('test.txt', 'rb+')
+                    str = f.read()
+                    len_s = len(str)
+                    data = struct.unpack(('%df' % (len_s / 4)), str)
+                    video_signatures.append(data)
+        video_signatures = np.array(video_signatures)
 
     print('Finding Matches...')
     # Handles small tests for which number of videos <  number of neighbors
@@ -393,43 +345,43 @@ def find_matchs(config):
     # Removes duplicated entries (eg if A matches B, we don't need B matches A)
     match_df = match_df.drop_duplicates(subset=['unique_index'])
 
-    if config.proc.filter_dark_videos:
-
-        print('Filtering dark and/or short videos')
-
-        # Get original files for which we have both frames and frame-level features
-        repr_keys = list(set(reps.video_level.list()))
-        paths = [key.path for key in repr_keys]
-        hashes = [key.hash for key in repr_keys]
-
-        print('Extracting additional information from video files')
-        brightness_estimation = np.array([get_brightness_estimation(reps, key) for key in tqdm(repr_keys)])
-        print(brightness_estimation.shape)
-        metadata_df = pd.DataFrame({"fn": paths,
-                                    "sha256": hashes,
-                                    "gray_max":brightness_estimation.reshape(brightness_estimation.shape[0])})
-
-        # Flag videos to be discarded
-
-        metadata_df['video_dark_flag'] = metadata_df.gray_max < config.proc.filter_dark_videos_thr
-
-        print('Videos discarded because of darkness:{}'.format(metadata_df['video_dark_flag'].sum()))
-
-        metadata_df['flagged'] = metadata_df['video_dark_flag']
-
-        # Discard videos
-        discarded_videos = metadata_df.loc[metadata_df['flagged'], :][['fn', 'sha256']]
-        discarded_videos = set(tuple(row) for row in discarded_videos.to_numpy())
-
-        # Function to check if the (path,hash) row is in the discarded set
-        def is_discarded(row):
-            return tuple(row) in discarded_videos
-
-        msk_1 = match_df[['query_video', 'query_sha256']].apply(is_discarded, axis=1)
-        msk_2 = match_df[['match_video', 'match_sha256']].apply(is_discarded, axis=1)
-        discard_msk = msk_1 | msk_2
-
-        match_df = match_df.loc[~discard_msk, :]
+    # if config.proc.filter_dark_videos:
+    #
+    #     print('Filtering dark and/or short videos')
+    #
+    #     # Get original files for which we have both frames and frame-level features
+    #     repr_keys = list(set(reps.video_level.list()))
+    #     paths = [key.path for key in repr_keys]
+    #     hashes = [key.hash for key in repr_keys]
+    #
+    #     print('Extracting additional information from video files')
+    #     brightness_estimation = np.array([get_brightness_estimation(reps, key) for key in tqdm(repr_keys)])
+    #     print(brightness_estimation.shape)
+    #     metadata_df = pd.DataFrame({"fn": paths,
+    #                                 "sha256": hashes,
+    #                                 "gray_max":brightness_estimation.reshape(brightness_estimation.shape[0])})
+    #
+    #     # Flag videos to be discarded
+    #
+    #     metadata_df['video_dark_flag'] = metadata_df.gray_max < config.proc.filter_dark_videos_thr
+    #
+    #     print('Videos discarded because of darkness:{}'.format(metadata_df['video_dark_flag'].sum()))
+    #
+    #     metadata_df['flagged'] = metadata_df['video_dark_flag']
+    #
+    #     # Discard videos
+    #     discarded_videos = metadata_df.loc[metadata_df['flagged'], :][['fn', 'sha256']]
+    #     discarded_videos = set(tuple(row) for row in discarded_videos.to_numpy())
+    #
+    #     # Function to check if the (path,hash) row is in the discarded set
+    #     def is_discarded(row):
+    #         return tuple(row) in discarded_videos
+    #
+    #     msk_1 = match_df[['query_video', 'query_sha256']].apply(is_discarded, axis=1)
+    #     msk_2 = match_df[['match_video', 'match_sha256']].apply(is_discarded, axis=1)
+    #     discard_msk = msk_1 | msk_2
+    #
+    #     match_df = match_df.loc[~discard_msk, :]
     if config.database.use:
         # Connect to database and ensure schema
         database = Database(uri=config.database.uri)
@@ -438,10 +390,10 @@ def find_matchs(config):
         # Save metadata
         result_storage = DBResultStorage(database)
 
-        if metadata_df is not None:
-            metadata_entries = metadata_df[['fn', 'sha256']]
-            metadata_entries['metadata'] = metadata_df.drop(columns=['fn', 'sha256']).to_dict('records')
-            result_storage.add_metadata(metadata_entries.to_numpy())
+        # if metadata_df is not None:
+        #     metadata_entries = metadata_df[['fn', 'sha256']]
+        #     metadata_entries['metadata'] = metadata_df.drop(columns=['fn', 'sha256']).to_dict('records')
+        #     result_storage.add_metadata(metadata_entries.to_numpy())
 
         # Save matches
         match_columns = ['query_video', 'query_sha256', 'match_video', 'match_sha256', 'distance']
@@ -671,7 +623,6 @@ def local_test(config):
     for nodeIP in get_ray_nodes():
         node_id = f"node:{nodeIP}"
         Convert.options(resources={node_id: 1.0})
-        # Convert.remote(config)
         ray.get(Convert.remote(config))
 
 

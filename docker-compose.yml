@@ -63,6 +63,7 @@ services:
       dockerfile: docker/Dockerfile.server
       args:
         GIT_HASH: "${GIT_HASH}"
+    cpu_percent: 90
     environment:
       SERVER_HOST: "0.0.0.0"
       SERVER_PORT: "5000"
