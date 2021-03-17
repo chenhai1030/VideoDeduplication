@@ -28,5 +28,6 @@ dependencies:
     - cached-property
     - dataclasses
     - ray
+    - schedule  
       #prefix: C:\ProgramData\Anaconda3\envs\winnow
 

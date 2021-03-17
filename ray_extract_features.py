@@ -5,7 +5,7 @@ import cv2
 import ray
 from ray.services import get_node_ip_address
 from functools import reduce
-import queue, threading
+import schedule
 import struct
 
 import logging
@@ -96,11 +96,12 @@ def main(config, list_of_files, frame_sampling, save_frames, start_time, end_tim
         os.popen('python /project/generate_matches.py')
         return
 
+    schedule.every(3600).seconds.do(find_matchs, config)
+    schedule.every(900).seconds.do(check_convert, config)
+
     startTime = start_time
     result_ids = []
     prepare_to_end = False
-    task_start_time = int(time.time())
-    time_count = 1
     while end_time - startTime > 0:
         cur_time = int(time.time())
         if startTime >= cur_time:
@@ -140,16 +141,14 @@ def main(config, list_of_files, frame_sampling, save_frames, start_time, end_tim
                             print(e)
                         time.sleep(2)
 
-            if need_convert:
-                check_convert(config)
 
-            cur_time = int(time.time())
-            if (cur_time - task_start_time > 0) and \
-                    (cur_time - task_start_time) / 3600 > time_count:
-                time_count += 1
-                print("Num: " + str(time_count) + " generate matches by TIME!")
-                find_matchs(config)
-                print("Num: " + str(time_count) + " generate matches by TIME! Done!")
+            # cur_time = int(time.time())
+            # if (cur_time - task_start_time > 0) and \
+            #         (cur_time - task_start_time) / 3600 > time_count:
+            #     time_count += 1
+            #     print("Num: " + str(time_count) + " generate matches by TIME!")
+            #     find_matchs(config)
+            #     print("Num: " + str(time_count) + " generate matches by TIME! Done!")
 
     print("task dis done!")
 
@@ -163,7 +162,6 @@ def main(config, list_of_files, frame_sampling, save_frames, start_time, end_tim
     if need_convert:
         check_convert(config)
 
-    # ray.get(gen_matchs.remote(nodes))
     find_matchs(config)
     print("All task Done!!")
 
@@ -238,12 +236,6 @@ def extract_features(config, link):
         remove_file("/project/data/test_dataset/" + file_name)
         remove_file("/project/data/representations/frame_level/" + file_name + ".npy")
         os.system("rm -rf /project/core.*")
-
-
-@ray.remote(max_calls=1, num_cpus=2, resources={f"node:{head_ip}": 1.0})
-def gen_matchs(nodes):
-    # collect_nodes_files.options(resources={f"node:{head_ip}": 2.0})
-    collect_nodes_files(nodes)
 
 
 def db_test(config):
