@@ -83,6 +83,11 @@ def filter_results(thr, distances, indices):
     return results, results_distances
 
 
+def uniq(row):
+
+    return ''.join([str(x) for x in sorted([row['query'], row['match']])])
+
+
 def load_gray_estimation_model():
     """
      Loads pretrained gray_max estimation model. This model has been trained

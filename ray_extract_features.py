@@ -28,9 +28,8 @@ from winnow.storage.repr_storage import ReprStorage
 from winnow.storage.repr_utils import bulk_read, bulk_write
 from winnow.utils import scan_videos, create_video_list, scan_videos_from_txt, \
     resolve_config, reprkey_resolver
-from winnow.utils import extract_additional_info, extract_scenes, filter_results, \
+from winnow.utils import extract_additional_info, extract_scenes, filter_results, uniq, \
     get_brightness_estimation
-from winnow.storage.repr_key import ReprKey
 
 
 
@@ -84,7 +83,7 @@ LOCAL_TEST = False
 )
 def main(config, list_of_files, frame_sampling, save_frames, start_time, end_time):
     Linda_interface = "http://172.17.26.95:8086/status/linda_orange_material_info?"
-    nodes = list(set(get_ray_nodes()))
+    nodes = get_ray_nodes()
     print(nodes)
 
     config = resolve_config(
@@ -97,13 +96,12 @@ def main(config, list_of_files, frame_sampling, save_frames, start_time, end_tim
         os.popen('python /project/generate_matches.py')
         return
 
-    schedule.every(3600).seconds.do(check_matchs, config)
-    schedule.every(1200).seconds.do(check_convert, config)
+    schedule.every(3600).seconds.do(find_matchs, config)
+    schedule.every(900).seconds.do(check_convert, config)
 
     startTime = start_time
     result_ids = []
     prepare_to_end = False
-    video_num_total = 0
     while end_time - startTime > 0:
         cur_time = int(time.time())
         if startTime >= cur_time:
@@ -118,15 +116,17 @@ def main(config, list_of_files, frame_sampling, save_frames, start_time, end_tim
         r = requests.get(linda_request_url)
         rsp = json.loads(r.text)
         if rsp['result'] == "success" and range(len(rsp['data']) > 0):
+            need_convert = False
             linda_list = [rsp['data'][i]['file_path'] for i in range(len(rsp['data']))]
             linda_list_temp = linda_list.copy()
-            video_num_total += len(linda_list_temp)
+
             record_video_list(linda_request_url, linda_list_temp)
 
             for idx, value in enumerate(linda_list_temp):
                 link = value
                 is_in_db = is_video_exist_in_db(config, link.split('/')[-1])
                 if not is_in_db:
+                    need_convert = True
                     while True:
                         try:
                             if int(ray.available_resources().get("CPU", 0)) > 1:
@@ -139,47 +139,55 @@ def main(config, list_of_files, frame_sampling, save_frames, start_time, end_tim
                                 break
                         except Exception as e:
                             print(e)
-                        schedule.run_pending()
                         time.sleep(2)
 
-            print("Total: " + str(video_num_total) + ", result_ids: " + str(len(result_ids)))
+
+            # cur_time = int(time.time())
+            # if (cur_time - task_start_time > 0) and \
+            #         (cur_time - task_start_time) / 3600 > time_count:
+            #     time_count += 1
+            #     print("Num: " + str(time_count) + " generate matches by TIME!")
+            #     find_matchs(config)
+            #     print("Num: " + str(time_count) + " generate matches by TIME! Done!")
 
     print("task dis done!")
 
     count = 0
     while len(result_ids) and count < 100:
-        _, result_ids = ray.wait(result_ids)
-        print("result_ids:" + str(len(result_ids)))
+        print("result_ids:" + str(len(result_ids)) )
+        done_id, result_ids = ray.wait(result_ids)
         count += 1
         time.sleep(2)
 
-    check_convert(config)
-    check_matchs(config)
+    if need_convert:
+        check_convert(config)
+
+    find_matchs(config)
     print("All task Done!!")
 
 
 def check_convert(config):
-    for node in ray.nodes():
-        nodeIP = node["NodeManagerAddress"]
-        ray.get(Convert.options(
-            num_cpus=0,
-            resources={f"node:{nodeIP}": 0.01}
-        ).remote(config))
+    for nodeIP in get_ray_nodes():
+        node_id = f"node:{nodeIP}"
+        Convert.options(resources={node_id: 1.0})
+        ray.get(Convert.remote(config))
 
 
-@ray.remote
+@ray.remote(max_calls=1)
 def Convert(config):
-    # collect_files(get_ray_nodes())
     reps = ReprStorage(os.path.join(config.repr.directory))
-    # print('Extracting Signatures from Video representations')
+    print('Extracting Signatures from Video representations')
     sm = SimilarityModel()
     vid_level_iterator = bulk_read(reps.video_level)
-    print("Prepare to update database! vid_num :" + str(len(vid_level_iterator)))
+
     if len(vid_level_iterator) > 0:
         signatures = sm.predict(vid_level_iterator)  # Get {ReprKey => signature} dict
 
+        logging.info('Saving Video Signatures on :{}'.format(reps.signature.directory))
         if config.database.use:
-            # Convert dict to list of (path, sha256, url, signature) tuples
+            # Convert dict to list of (path, sha256, signature) tuples
+            # entries = [(key.path, key.hash, sig) for key, sig in signatures.items()]
+            ## use link instead of path
             entries = [(key.path, key.hash, key.url, sig) for key, sig in signatures.items()]
 
             # Connect to database
@@ -190,11 +198,7 @@ def Convert(config):
                 # Save signatures
                 result_storage = DBResultStorage(database)
                 result_storage.add_signatures(entries)
-                # after writen to db, remove.
-                for key, sig in signatures.items():
-                    remove_file("/project/data/representations/video_level/" + key.path + ".npy")
             except Exception as e:
-                print("save db ERROR!")
                 print(e)
 
         # if config.save_files:
@@ -234,36 +238,63 @@ def extract_features(config, link):
         os.system("rm -rf /project/core.*")
 
 
-def check_matchs(config):
-    ray.get(find_matchs.options(
-        num_cpus=0,
-        resources={f"node:{head_ip}": 0.01}
-    ).remote(config))
-
-
-@ray.remote
-def find_matchs(config):
-    print('Reading Video Signatures')
+def db_test(config):
     database = Database(uri=config.database.uri)
     with database.session_scope() as session:
         query = session.query(Files).options(joinedload(Files.signature))
         files = query.filter().all()
 
-        signature_iterator = dict()
+        paths = np.array([file.file_path for file in files])
+        hashes = np.array([file.sha256 for file in files])
+        # video_signatures = np.array([file.signature.signature for file in files])
         for file in files:
-            if file.signature is not None and check_is_signature_valid(file):
+            if file.signature is not None:
+                if file.file_path == "v127550211.mp4":
+                    with open("test.txt", "wb+") as f:
+                        f.write(file.signature.signature)
+                        f.seek(0)
+                    # f = open('test.txt', 'rb+')
+                        str = f.read()
+                        len_s = len(str)
+                        data = struct.unpack(('%df' % (len_s / 4)), str)
+                        print(data)
+                    # f.close()
+            else:
+                print(file.file_path)
+            return
+
+
+def find_matchs(config):
+    # reps = ReprStorage(config.repr.directory)
+
+    # Get mapping (path,hash) => sig.
+    # print('Extracting Video Signatures')
+
+    # # signature_iterator = bulk_read_lmdb(reps.signature)
+    # signature_iterator = bulk_read(reps.signature)
+    # repr_keys, video_signatures = zip(*signature_iterator.items())
+    # paths = np.array([key.path for key in repr_keys])
+    # hashes = np.array([key.hash for key in repr_keys])
+    # video_signatures = np.array(video_signatures)
+
+    print('Reading Video Signatures')
+    database = Database(uri=config.database.uri)
+    with database.session_scope() as session:
+        query = session.query(Files).options(joinedload(Files.signature))
+        files = query.filter().all()
+        paths = np.array([file.file_path for file in files])
+        hashes = np.array([file.sha256 for file in files])
+        video_signatures = []
+        for file in files:
+            if file.signature is not None:
                 with open("/tmp/test.txt", "wb+") as f:
                     f.write(file.signature.signature)
                     f.seek(0)
+                    # f = open('test.txt', 'rb+')
                     str = f.read()
                     len_s = len(str)
-                    sig = struct.unpack(('%df' % (len_s / 4)), str)
-
-                signature_iterator[ReprKey(path=file.file_path, hash=file.sha256, tag=file.meta, url=file.file_url)] = sig
-
-        repr_keys, video_signatures = zip(*signature_iterator.items())
-        paths = np.array([key.path for key in repr_keys])
-        hashes = np.array([key.hash for key in repr_keys])
+                    data = struct.unpack(('%df' % (len_s / 4)), str)
+                    video_signatures.append(data)
         video_signatures = np.array(video_signatures)
 
     print('Finding Matches...')
@@ -362,6 +393,12 @@ def find_matchs(config):
         result_storage.add_matches(match_df[match_columns].to_numpy())
 
 
+def collect_nodes_files(nodes):
+    collect_files(nodes)
+    merge_files(nodes)
+    clean_files()
+
+
 def is_video_exist_in_db(config, file):
     if config.database.use:
         database = Database(uri=config.database.uri)
@@ -375,6 +412,14 @@ def is_video_exist_in_db(config, file):
                 print("db is null")
                 return False
     return True
+
+
+def num_alive_nodes():
+    n = 0
+    for node in ray.nodes():
+        if node["Alive"]:
+            n += 1
+    return n
 
 
 def get_ray_nodes():
@@ -567,15 +612,27 @@ def local_test(config):
         count += 1
         time.sleep(2)
 
-    check_convert(config)
+    for nodeIP in get_ray_nodes():
+        node_id = f"node:{nodeIP}"
+        Convert.options(resources={node_id: 1.0})
+        ray.get(Convert.remote(config))
 
 
-def check_is_signature_valid(file):
-    if file.signature.signature[0] == file.signature.signature[1] == file.signature.signature[2]:
-        return False
+def clean_files():
+    os.popen("rm -rf /project/data/representations/video_level/*.npy")
+    os.popen("rm -rf /project/data/representations/frame_level/*.npy")
 
-    return True
 
+def collect_files(nodes):
+    global head_ip
+    if not os.path.exists("/project/data/rsync_path"):
+        os.makedirs("/project/data/rsync_path")
+    for node in nodes:
+        if node != head_ip:
+            command = "rsync -avz --password-file=/etc/rsyncd.passwd chenhai@" + node + \
+                      "::video /project/data/rsync_path/" + node
+            ret = os.popen(command)
+            print(ret.read())
 
 
 if __name__ == "__main__":
