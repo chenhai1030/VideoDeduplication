@@ -45,8 +45,8 @@ class ListFilesRequest:
     preload: list = field(default_factory=list)
     sort: str = None
     match_filter: str = FileMatchFilter.ALL
-    related_distance: float = 0.7
-    duplicate_distance: float = 0.25
+    related_distance: float = 0.80
+    duplicate_distance: float = 0.50
 
 
 @dataclass
@@ -94,7 +94,6 @@ class FilesDAO:
         # Get files from result set if there are additional attributes.
         if len(sortable_attributes) > 0:
             items = [item[0] for item in items]
-
         return ListFilesResults(items=items, counts=counts)
 
     @staticmethod
@@ -114,8 +113,9 @@ class FilesDAO:
     def has_matches(threshold):
         """Create a filter criteria to check if there is a match
         with distance lesser or equal to the given threshold."""
-        return or_(Files.source_matches.any(Matches.distance <= threshold),
-                   Files.target_matches.any(Matches.distance <= threshold))
+        return or_(Files.source_matches.any(Matches.distance <= threshold))
+        # return or_(Files.source_matches.any(Matches.distance <= threshold),
+        #            Files.target_matches.any(Matches.distance <= threshold))
 
     @staticmethod
     def file_matches(file_id, session):
